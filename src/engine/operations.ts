@@ -146,3 +146,19 @@ export function addEdge(
     },
   };
 }
+
+export function removeEdge(
+  workflow: Workflow,
+  edgeId: string,
+): Workflow {
+  if (!Object.hasOwn(workflow.edges, edgeId)) {
+    return workflow;
+  }
+
+  const { [edgeId]: _removedEdge, ...edges } = workflow.edges;
+
+  return {
+    ...workflow,
+    edges,
+  };
+}
