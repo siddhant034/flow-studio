@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addEdge, addNode, moveNode, removeEdge, removeNode, updateNode } from "./operations";
+import { addEdge, addNode, moveNode, removeEdge, removeNode, updateNode, updateWorkflowMetadata } from "./operations";
 import type { Workflow, WorkflowEdge, WorkflowNode } from "./types";
 
 const createWorkflow = (): Workflow => ({
@@ -455,5 +455,49 @@ describe("moveNode", () => {
     expect(
       moveNode(workflow, "action-1", { x: 120, y: 80 }),
     ).toBe(workflow);
+  });
+});
+
+describe("updateWorkflowMetadata", () => {
+  it("updates the workflow name and description immutably", () => {
+    const workflow: Workflow = {
+      ...createWorkflow(),
+      name: "Lead flow",
+      description: "Qualify incoming leads",
+    };
+
+    const result = updateWorkflowMetadata(workflow, {
+      name: "Customer onboarding",
+      description: "Welcome new customers",
+    });
+
+    expect(result.name).toBe("Customer onboarding");
+    expect(result.description).toBe("Welcome new customers");
+    expect(result.nodes).toBe(workflow.nodes);
+    expect(result.edges).toBe(workflow.edges);
+    expect(workflow.name).toBe("Lead flow");
+    expect(result).not.toBe(workflow);
+  });
+
+  it("preserves metadata fields that are not included in the update", () => {
+    const workflow: Workflow = {
+      ...createWorkflow(),
+      name: "Lead flow",
+      description: "Qualify incoming leads",
+    };
+
+    const result = updateWorkflowMetadata(workflow, { name: "Sales flow" });
+
+    expect(result.name).toBe("Sales flow");
+    expect(result.description).toBe("Qualify incoming leads");
+  });
+
+  it("returns the original workflow when metadata is unchanged", () => {
+    const workflow: Workflow = {
+      ...createWorkflow(),
+      name: "Lead flow",
+    };
+
+    expect(updateWorkflowMetadata(workflow, { name: "Lead flow" })).toBe(workflow);
   });
 });
