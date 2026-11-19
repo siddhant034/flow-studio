@@ -1,8 +1,9 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PointerEvent } from "react";
 import type { Point, WorkflowEdge, WorkflowNode } from "./engine/types";
 import { initialWorkflow } from "./editor/initialWorkflow";
 import { addEdge, addNode, moveNode, removeNode, updateNode } from "./engine/operations";
+import { commitHistory, createHistory, redoHistory, undoHistory } from "./engine/history";
 import "./styles.css";
 
 const palette = [
@@ -128,7 +129,16 @@ function NodeCard({
 }
 
 export default function App() {
-  const [workflow, setWorkflow] = useState(initialWorkflow);
+  const [workflow, setWorkflowState] = useState(initialWorkflow);
+  const [history, setHistory] = useState(() => createHistory(initialWorkflow));
+  const workflowRef = useRef(workflow);
+  workflowRef.current = workflow;
+
+  const commitWorkflow = (nextWorkflow: typeof initialWorkflow) => {
+    workflowRef.current = nextWorkflow;
+    setWorkflowState(nextWorkflow);
+    setHistory((current) => commitHistory(current, nextWorkflow));
+  };
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [viewport, setViewport] = useState({ zoom: 0.78, panX: 0, panY: 0 });
   const [connectionDraft, setConnectionDraft] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
@@ -216,7 +226,9 @@ export default function App() {
       const scale = worldWidth / 1320 || 1;
       const x = Math.max(0, drag.startX + (event.clientX - drag.startClientX) / scale);
       const y = Math.max(0, drag.startY + (event.clientY - drag.startClientY) / scale);
-      setWorkflow((current) => moveNode(current, drag.nodeId, { x, y }));
+      const nextWorkflow = moveNode(workflowRef.current, drag.nodeId, { x, y });
+      workflowRef.current = nextWorkflow;
+      setWorkflowState(nextWorkflow);
       return;
     }
 
@@ -245,7 +257,7 @@ export default function App() {
       y: 430 + (Math.floor(nodes.length / 3) % 3) * 36,
     };
     const node = createWorkflowNode(type, id, position);
-    setWorkflow((current) => addNode(current, node));
+    commitWorkflow(addNode(workflowRef.current, node));
     setSelectedNodeId(id);
   };
 
@@ -264,7 +276,7 @@ export default function App() {
           target: { nodeId: targetNodeId, portId: targetPortId },
         };
         try {
-          setWorkflow(addEdge(workflow, edge));
+          commitWorkflow(addEdge(workflowRef.current, edge));
           setNotice("Connection created");
         } catch (error) {
           setNotice(error instanceof Error ? error.message : "Unable to create connection");
@@ -278,6 +290,7 @@ export default function App() {
     }
 
     if (dragRef.current?.pointerId === event.pointerId) {
+      setHistory((current) => commitHistory(current, workflowRef.current));
       dragRef.current = null;
     }
     if (panRef.current?.pointerId === event.pointerId) {
@@ -293,14 +306,57 @@ export default function App() {
 
   const updateSelectedNode = (updater: (node: WorkflowNode) => WorkflowNode) => {
     if (!selectedNodeId) return;
-    setWorkflow((current) => updateNode(current, selectedNodeId, updater));
+    commitWorkflow(updateNode(workflowRef.current, selectedNodeId, updater));
   };
 
   const handleDeleteSelectedNode = () => {
     if (!selectedNodeId) return;
-    setWorkflow((current) => removeNode(current, selectedNodeId));
+    commitWorkflow(removeNode(workflowRef.current, selectedNodeId));
     setSelectedNodeId(null);
   };
+
+  const handleUndo = () => {
+    const nextHistory = undoHistory(history);
+    setHistory(nextHistory);
+    workflowRef.current = nextHistory.present;
+    setWorkflowState(nextHistory.present);
+  };
+
+  const handleRedo = () => {
+    const nextHistory = redoHistory(history);
+    setHistory(nextHistory);
+    workflowRef.current = nextHistory.present;
+    setWorkflowState(nextHistory.present);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      const isEditingText = target instanceof HTMLElement &&
+        (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        if (event.shiftKey) handleRedo();
+        else handleUndo();
+        return;
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "y") {
+        event.preventDefault();
+        handleRedo();
+        return;
+      }
+
+      if (!isEditingText && (event.key === "Backspace" || event.key === "Delete") && selectedNodeId) {
+        event.preventDefault();
+        handleDeleteSelectedNode();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [history, selectedNodeId]);
 
   return (
     <main className="app-shell">
@@ -313,8 +369,8 @@ export default function App() {
           <span className="saved-state"><i /> Example workflow</span>
         </div>
         <div className="topbar-actions">
-          <button className="icon-button" disabled aria-label="Undo" title="Undo">↶</button>
-          <button className="icon-button" disabled aria-label="Redo" title="Redo">↷</button>
+          <button className="icon-button" onClick={handleUndo} disabled={history.past.length === 0} aria-label="Undo" title="Undo (⌘Z)">↶</button>
+          <button className="icon-button" onClick={handleRedo} disabled={history.future.length === 0} aria-label="Redo" title="Redo (⌘⇧Z)">↷</button>
           <span className="topbar-divider" />
           <button className="share-button" disabled>Share</button>
           <button className="publish-button" disabled>Publish <span>↗</span></button>
