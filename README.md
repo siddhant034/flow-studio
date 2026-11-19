@@ -51,3 +51,11 @@ Workflows use a normalized representation: nodes and edges are stored in records
 ## Current scope
 
 This project is an editor prototype. It does not execute workflows or provide server-side collaboration.
+
+## Deployment
+
+The repository includes a GitHub Pages workflow that builds and deploys the app whenever changes reach `main`.
+
+Before the first deployment, set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**. The published project URL will be:
+
+https://siddhant034.github.io/flow-studio/
