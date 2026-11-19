@@ -381,7 +381,8 @@ export default function App() {
 
       if (!isEditingText && (event.key === "Backspace" || event.key === "Delete") && (selectedNodeId || selectedEdgeId)) {
         event.preventDefault();
-        handleDeleteSelectedNode();
+        if (selectedNodeId) handleDeleteSelectedNode();
+        else if (selectedEdgeId) handleDeleteSelectedEdge();
       }
     };
 
@@ -426,6 +427,7 @@ export default function App() {
       setWorkflowState(imported);
       setHistory(createHistory(imported));
       setSelectedNodeId(null);
+      setSelectedEdgeId(null);
       setNotice("Workflow imported successfully");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to import workflow");
