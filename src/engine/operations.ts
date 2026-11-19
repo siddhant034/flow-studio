@@ -233,3 +233,22 @@ export function moveNode(
     },
   };
 }
+
+/** Updates workflow-level metadata without replacing graph entities. */
+export function updateWorkflowMetadata(
+  workflow: Workflow,
+  updates: Partial<Pick<Workflow, "name" | "description">>,
+): Workflow {
+  const nextName = updates.name ?? workflow.name;
+  const nextDescription = updates.description ?? workflow.description;
+
+  if (nextName === workflow.name && nextDescription === workflow.description) {
+    return workflow;
+  }
+
+  return {
+    ...workflow,
+    ...(updates.name !== undefined ? { name: updates.name } : {}),
+    ...(updates.description !== undefined ? { description: updates.description } : {}),
+  };
+}
