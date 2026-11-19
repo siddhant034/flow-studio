@@ -1,4 +1,4 @@
-import type { Workflow, WorkflowNode } from "./types";
+import type { NodeId, Workflow, WorkflowNode } from "./types";
 
 export function addNode(
   workflow: Workflow,
@@ -14,5 +14,28 @@ export function addNode(
       ...workflow.nodes,
       [node.id]: node,
     },
+  };
+}
+
+export function removeNode(
+  workflow: Workflow,
+  nodeId: NodeId,
+): Workflow {
+  if (!Object.hasOwn(workflow.nodes, nodeId)) {
+    return workflow;
+  }
+
+  const { [nodeId]: _removedNode, ...nodes } = workflow.nodes;
+  const edges = Object.fromEntries(
+    Object.entries(workflow.edges).filter(
+      ([, edge]) =>
+        edge.source.nodeId !== nodeId && edge.target.nodeId !== nodeId,
+    ),
+  );
+
+  return {
+    ...workflow,
+    nodes,
+    edges,
   };
 }
