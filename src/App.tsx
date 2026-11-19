@@ -517,7 +517,7 @@ export default function App() {
               </div>
             )}
             <div className="graph-world" ref={graphWorldRef} style={{ transform: `translate(calc(-50% + ${viewport.panX}px), calc(-50% + ${viewport.panY}px)) scale(${viewport.zoom})` }}>
-              <svg className="edge-layer" width="1320" height="620" aria-hidden="true">
+              <svg className="edge-layer" width="1320" height="620" role="group" aria-label="Workflow connections">
                 {edges.map((edge) => <path key={edge.id} d={edgePath(edge, workflow.nodes)} className={`graph-edge ${selectedEdgeId === edge.id ? "is-selected" : ""}`} onClick={(event) => { event.stopPropagation(); setSelectedEdgeId(edge.id); setSelectedNodeId(null); }} role="button" tabIndex={0} aria-label={`Connection from ${edge.source.nodeId} to ${edge.target.nodeId}`} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedEdgeId(edge.id); setSelectedNodeId(null); } }} />)}
                 {connectionDraft && <path d={`M ${connectionDraft.x1} ${connectionDraft.y1} C ${connectionDraft.x1 + 60} ${connectionDraft.y1}, ${connectionDraft.x2 - 60} ${connectionDraft.y2}, ${connectionDraft.x2} ${connectionDraft.y2}`} className="graph-edge graph-edge-draft" />}
               </svg>
