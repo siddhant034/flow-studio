@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import type { PointerEvent } from "react";
 import type { Point, WorkflowEdge, WorkflowNode } from "./engine/types";
 import { initialWorkflow } from "./editor/initialWorkflow";
-import { addNode, moveNode, removeNode, updateNode } from "./engine/operations";
+import { addEdge, addNode, moveNode, removeNode, updateNode } from "./engine/operations";
 import "./styles.css";
 
 const palette = [
@@ -84,11 +84,13 @@ function NodeCard({
   selected,
   onSelect,
   onDragStart,
+  onConnectStart,
 }: {
   node: WorkflowNode;
   selected: boolean;
   onSelect: () => void;
   onDragStart: (event: PointerEvent<HTMLButtonElement>) => void;
+  onConnectStart: (portId: string, event: PointerEvent<HTMLSpanElement>) => void;
 }) {
   return (
     <button
@@ -115,10 +117,10 @@ function NodeCard({
               : "Workflow destination"}
       </small>
       {inputPorts(node).map((port) => (
-        <span key={port.id} className="graph-port graph-port-input" style={{ top: portOffset(node, port.id, "input") }} title={port.label} />
+        <span key={port.id} className="graph-port graph-port-input" data-port-direction="input" data-node-id={node.id} data-port-id={port.id} style={{ top: portOffset(node, port.id, "input") }} title={port.label} />
       ))}
       {outputPorts(node).map((port) => (
-        <span key={port.id} className="graph-port graph-port-output" style={{ top: portOffset(node, port.id, "output") }} title={port.label} />
+        <span key={port.id} className="graph-port graph-port-output" data-port-direction="output" data-node-id={node.id} data-port-id={port.id} onPointerDown={(event) => onConnectStart(port.id, event)} style={{ top: portOffset(node, port.id, "output") }} title={`Connect from ${port.label}`} />
       ))}
       {node.type === "condition" && <div className="condition-labels"><span>Yes</span><span>No</span></div>}
     </button>
@@ -129,6 +131,9 @@ export default function App() {
   const [workflow, setWorkflow] = useState(initialWorkflow);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [viewport, setViewport] = useState({ zoom: 0.78, panX: 0, panY: 0 });
+  const [connectionDraft, setConnectionDraft] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const [notice, setNotice] = useState("");
+  const connectionRef = useRef<{ pointerId: number; sourceNodeId: string; sourcePortId: string } | null>(null);
   const panRef = useRef<{
     pointerId: number;
     startClientX: number;
@@ -162,6 +167,21 @@ export default function App() {
     viewportRef.current?.setPointerCapture(event.pointerId);
   };
 
+  const handleConnectStart = (node: WorkflowNode, portId: string, event: PointerEvent<HTMLSpanElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = node.position.x + 220;
+    const startY = node.position.y + portOffset(node, portId, "output");
+    connectionRef.current = {
+      pointerId: event.pointerId,
+      sourceNodeId: node.id,
+      sourcePortId: portId,
+    };
+    setConnectionDraft({ x1: startX, y1: startY, x2: startX, y2: startY });
+    setNotice("Drag to an input port to create a connection");
+    viewportRef.current?.setPointerCapture(event.pointerId);
+  };
+
   const handleCanvasPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || dragRef.current) return;
     const target = event.target as HTMLElement;
@@ -178,6 +198,18 @@ export default function App() {
   };
 
   const handleCanvasPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const connection = connectionRef.current;
+    if (connection && connection.pointerId === event.pointerId && graphWorldRef.current) {
+      const bounds = graphWorldRef.current.getBoundingClientRect();
+      const scale = bounds.width / 1320 || 1;
+      setConnectionDraft((draft) => draft ? {
+        ...draft,
+        x2: (event.clientX - bounds.left) / scale,
+        y2: (event.clientY - bounds.top) / scale,
+      } : draft);
+      return;
+    }
+
     const drag = dragRef.current;
     if (drag && drag.pointerId === event.pointerId) {
       const worldWidth = graphWorldRef.current?.getBoundingClientRect().width ?? 1320;
@@ -218,6 +250,33 @@ export default function App() {
   };
 
   const handleCanvasPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    const connection = connectionRef.current;
+    if (connection && connection.pointerId === event.pointerId) {
+      const target = document.elementFromPoint(event.clientX, event.clientY);
+      const inputPort = target?.closest<HTMLElement>('[data-port-direction="input"]');
+      const targetNodeId = inputPort?.dataset.nodeId;
+      const targetPortId = inputPort?.dataset.portId;
+
+      if (targetNodeId && targetPortId) {
+        const edge = {
+          id: `edge-${crypto.randomUUID().slice(0, 8)}`,
+          source: { nodeId: connection.sourceNodeId, portId: connection.sourcePortId },
+          target: { nodeId: targetNodeId, portId: targetPortId },
+        };
+        try {
+          setWorkflow((current) => addEdge(current, edge));
+          setNotice("Connection created");
+        } catch (error) {
+          setNotice(error instanceof Error ? error.message : "Unable to create connection");
+        }
+      } else {
+        setNotice("Connection cancelled — drop on an input port");
+      }
+
+      connectionRef.current = null;
+      setConnectionDraft(null);
+    }
+
     if (dragRef.current?.pointerId === event.pointerId) {
       dragRef.current = null;
     }
@@ -298,13 +357,15 @@ export default function App() {
             onPointerCancel={handleCanvasPointerUp}
           >
             <div className="canvas-grid" />
-            <div className="canvas-empty-hint"><span>✦</span> Workflow canvas <em>·</em> Select a node to inspect</div>
+            <div className="canvas-empty-hint"><span>✦</span> Workflow canvas <em>·</em> Drag nodes to move · Drag output ports to connect</div>
+            {notice && <div className="canvas-notice">{notice}</div>}
             <div className="graph-world" ref={graphWorldRef} style={{ transform: `translate(calc(-50% + ${viewport.panX}px), calc(-50% + ${viewport.panY}px)) scale(${viewport.zoom})` }}>
               <svg className="edge-layer" width="1320" height="620" aria-hidden="true">
                 {edges.map((edge) => <path key={edge.id} d={edgePath(edge, workflow.nodes)} className="graph-edge" />)}
+                {connectionDraft && <path d={`M ${connectionDraft.x1} ${connectionDraft.y1} C ${connectionDraft.x1 + 60} ${connectionDraft.y1}, ${connectionDraft.x2 - 60} ${connectionDraft.y2}, ${connectionDraft.x2} ${connectionDraft.y2}`} className="graph-edge graph-edge-draft" />}
               </svg>
               {nodes.map((node) => (
-                <NodeCard key={node.id} node={node} selected={selectedNodeId === node.id} onSelect={() => setSelectedNodeId(node.id)} onDragStart={(event) => handleNodeDragStart(node, event)} />
+                <NodeCard key={node.id} node={node} selected={selectedNodeId === node.id} onSelect={() => setSelectedNodeId(node.id)} onDragStart={(event) => handleNodeDragStart(node, event)} onConnectStart={(portId, event) => handleConnectStart(node, portId, event)} />
               ))}
             </div>
             <div className="canvas-zoom"><button onClick={() => changeZoom(-0.1)} aria-label="Zoom out">−</button><span>{Math.round(viewport.zoom * 100)}%</span><button onClick={() => changeZoom(0.1)} aria-label="Zoom in">+</button><i /><button onClick={fitCanvas} aria-label="Fit view">⌗</button></div>
