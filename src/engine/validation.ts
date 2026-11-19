@@ -31,22 +31,28 @@ function hasPort(
   direction: "inputs" | "outputs",
   portId: string,
 ): boolean {
-  return direction in node &&
-    node[direction].some((port) => port.id === portId);
+  if (direction === "inputs") {
+    return "inputs" in node && node.inputs.some((port) => port.id === portId);
+  }
+
+  return "outputs" in node && node.outputs.some((port) => port.id === portId);
 }
 
 function findDuplicatePortIds(node: WorkflowNode): string[] {
-  const seen = new Set<string>();
   const duplicates = new Set<string>();
 
-  for (const port of [
-    ...("inputs" in node ? node.inputs : []),
-    ...("outputs" in node ? node.outputs : []),
+  for (const ports of [
+    "inputs" in node ? node.inputs : [],
+    "outputs" in node ? node.outputs : [],
   ]) {
-    if (seen.has(port.id)) {
-      duplicates.add(port.id);
+    const seen = new Set<string>();
+
+    for (const port of ports) {
+      if (seen.has(port.id)) {
+        duplicates.add(port.id);
+      }
+      seen.add(port.id);
     }
-    seen.add(port.id);
   }
 
   return [...duplicates];
@@ -215,11 +221,7 @@ export function validateWorkflow(
   }
 
   if (hasCycle(Object.keys(workflow.nodes), adjacency)) {
-    addIssue(
-      "cycle-detected",
-      "Workflow contains a cycle.",
-      "edges",
-    );
+    addIssue("cycle-detected", "Workflow contains a cycle.", "edges");
   }
 
   return {
