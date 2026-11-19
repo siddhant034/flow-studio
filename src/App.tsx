@@ -6,6 +6,8 @@ import { addEdge, addNode, moveNode, removeNode, updateNode } from "./engine/ope
 import { commitHistory, createHistory, redoHistory, undoHistory } from "./engine/history";
 import { deserializeWorkflow, serializeWorkflow } from "./engine/serialization";
 import { createWorkflowStorage } from "./engine/storage";
+import { validateWorkflow } from "./engine/validation";
+import type { WorkflowValidationIssue } from "./engine/validation";
 import "./styles.css";
 
 const palette = [
@@ -147,6 +149,7 @@ export default function App() {
   const [viewport, setViewport] = useState({ zoom: 0.78, panX: 0, panY: 0 });
   const [connectionDraft, setConnectionDraft] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [notice, setNotice] = useState("");
+  const [validationIssues, setValidationIssues] = useState<WorkflowValidationIssue[] | null>(null);
   const connectionRef = useRef<{ pointerId: number; sourceNodeId: string; sourcePortId: string } | null>(null);
   const panRef = useRef<{
     pointerId: number;
@@ -377,6 +380,12 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [history, selectedNodeId]);
 
+  const handleValidate = () => {
+    const result = validateWorkflow(workflowRef.current);
+    setValidationIssues(result.issues);
+    setNotice(result.valid ? "Workflow is valid" : `${result.issues.length} validation issue(s) found`);
+  };
+
   const handleSave = () => {
     try {
       storageRef.current?.save(workflowRef.current);
@@ -462,6 +471,7 @@ export default function App() {
         <section className="canvas-area">
           <div className="canvas-toolbar">
             <div className="breadcrumb"><span>Workflows</span><b>/</b><strong>Lead enrichment</strong></div>
+            <button className="validate-button" type="button" onClick={handleValidate}>✓ Validate</button>
             <div className="canvas-tools"><button disabled title="Select">↖</button><button disabled title="Pan">✋</button><span /><button onClick={() => changeZoom(-0.1)} title="Zoom out">−</button><small>{Math.round(viewport.zoom * 100)}%</small><button onClick={() => changeZoom(0.1)} title="Zoom in">+</button><span /><button onClick={fitCanvas} title="Fit view">⛶</button></div>
           </div>
           <div
@@ -475,6 +485,26 @@ export default function App() {
             <div className="canvas-grid" />
             <div className="canvas-empty-hint"><span>✦</span> Workflow canvas <em>·</em> Drag nodes to move · Drag output ports to connect</div>
             {notice && <div className="canvas-notice">{notice}</div>}
+            {validationIssues !== null && (
+              <div className="validation-panel" role="status">
+                <div className="validation-panel-heading">
+                  <strong>{validationIssues.length === 0 ? "Workflow is valid" : `Validation issues · ${validationIssues.length}`}</strong>
+                  <button type="button" onClick={() => setValidationIssues(null)} aria-label="Close validation results">×</button>
+                </div>
+                {validationIssues.length === 0 ? (
+                  <p className="validation-success">All graph integrity checks passed.</p>
+                ) : (
+                  <ul>
+                    {validationIssues.map((issue, index) => (
+                      <li key={`${issue.code}-${issue.path}-${index}`}>
+                        <span>{issue.message}</span>
+                        <small>{issue.path}</small>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
             <div className="graph-world" ref={graphWorldRef} style={{ transform: `translate(calc(-50% + ${viewport.panX}px), calc(-50% + ${viewport.panY}px)) scale(${viewport.zoom})` }}>
               <svg className="edge-layer" width="1320" height="620" aria-hidden="true">
                 {edges.map((edge) => <path key={edge.id} d={edgePath(edge, workflow.nodes)} className="graph-edge" />)}
