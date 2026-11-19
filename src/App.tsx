@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, PointerEvent } from "react";
 import type { Point, WorkflowEdge, WorkflowNode } from "./engine/types";
 import { initialWorkflow } from "./editor/initialWorkflow";
-import { addEdge, addNode, moveNode, removeNode, updateNode } from "./engine/operations";
+import { addEdge, addNode, moveNode, removeEdge, removeNode, updateNode } from "./engine/operations";
 import { commitHistory, createHistory, redoHistory, undoHistory } from "./engine/history";
 import { deserializeWorkflow, serializeWorkflow } from "./engine/serialization";
 import { createWorkflowStorage } from "./engine/storage";
@@ -146,6 +146,7 @@ export default function App() {
     setHistory((current) => commitHistory(current, nextWorkflow));
   };
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [viewport, setViewport] = useState({ zoom: 0.78, panX: 0, panY: 0 });
   const [connectionDraft, setConnectionDraft] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [notice, setNotice] = useState("");
@@ -308,6 +309,7 @@ export default function App() {
     }
   };
   const selectedNode = selectedNodeId ? workflow.nodes[selectedNodeId] : undefined;
+  const selectedEdge = selectedEdgeId ? workflow.edges[selectedEdgeId] : undefined;
   const nodes = Object.values(workflow.nodes);
   const edges = Object.values(workflow.edges);
 
@@ -316,10 +318,17 @@ export default function App() {
     commitWorkflow(updateNode(workflowRef.current, selectedNodeId, updater));
   };
 
+  const handleDeleteSelectedEdge = () => {
+    if (!selectedEdgeId) return;
+    commitWorkflow(removeEdge(workflowRef.current, selectedEdgeId));
+    setSelectedEdgeId(null);
+  };
+
   const handleDeleteSelectedNode = () => {
     if (!selectedNodeId) return;
     commitWorkflow(removeNode(workflowRef.current, selectedNodeId));
     setSelectedNodeId(null);
+    setSelectedEdgeId(null);
   };
 
   const handleUndo = () => {
@@ -370,7 +379,7 @@ export default function App() {
         return;
       }
 
-      if (!isEditingText && (event.key === "Backspace" || event.key === "Delete") && selectedNodeId) {
+      if (!isEditingText && (event.key === "Backspace" || event.key === "Delete") && (selectedNodeId || selectedEdgeId)) {
         event.preventDefault();
         handleDeleteSelectedNode();
       }
@@ -507,7 +516,7 @@ export default function App() {
             )}
             <div className="graph-world" ref={graphWorldRef} style={{ transform: `translate(calc(-50% + ${viewport.panX}px), calc(-50% + ${viewport.panY}px)) scale(${viewport.zoom})` }}>
               <svg className="edge-layer" width="1320" height="620" aria-hidden="true">
-                {edges.map((edge) => <path key={edge.id} d={edgePath(edge, workflow.nodes)} className="graph-edge" />)}
+                {edges.map((edge) => <path key={edge.id} d={edgePath(edge, workflow.nodes)} className={`graph-edge ${selectedEdgeId === edge.id ? "is-selected" : ""}`} onClick={(event) => { event.stopPropagation(); setSelectedEdgeId(edge.id); setSelectedNodeId(null); }} role="button" tabIndex={0} aria-label={`Connection from ${edge.source.nodeId} to ${edge.target.nodeId}`} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedEdgeId(edge.id); setSelectedNodeId(null); } }} />)}
                 {connectionDraft && <path d={`M ${connectionDraft.x1} ${connectionDraft.y1} C ${connectionDraft.x1 + 60} ${connectionDraft.y1}, ${connectionDraft.x2 - 60} ${connectionDraft.y2}, ${connectionDraft.x2} ${connectionDraft.y2}`} className="graph-edge graph-edge-draft" />}
               </svg>
               {nodes.map((node) => (
@@ -530,6 +539,14 @@ export default function App() {
               {selectedNode.type === "action" && <><label htmlFor="node-action">Action</label><input id="node-action" className="inspector-input" value={selectedNode.config.action} onChange={(event) => updateSelectedNode((node) => node.type === "action" ? { ...node, config: { action: event.target.value } } : node)} /></>}
               {selectedNode.type === "condition" && <><label htmlFor="node-expression">Expression</label><input id="node-expression" className="inspector-input" value={selectedNode.config.expression} onChange={(event) => updateSelectedNode((node) => node.type === "condition" ? { ...node, config: { expression: event.target.value } } : node)} /></>}
               <button className="delete-node-button" type="button" onClick={handleDeleteSelectedNode}>Delete node</button>
+            </div>
+          ) : selectedEdge ? (
+            <div className="selected-inspector">
+              <div className="selected-node-type"><span className="node-symbol blue">↔</span><div><strong>Connection</strong><small>WORKFLOW EDGE</small></div></div>
+              <label>Connection ID</label><div className="fake-input">{selectedEdge.id}</div>
+              <label>Source</label><div className="fake-input">{selectedEdge.source.nodeId} · {selectedEdge.source.portId}</div>
+              <label>Target</label><div className="fake-input">{selectedEdge.target.nodeId} · {selectedEdge.target.portId}</div>
+              <button className="delete-node-button" type="button" onClick={handleDeleteSelectedEdge}>Delete connection</button>
             </div>
           ) : (
             <div className="inspector-empty"><div className="inspector-art"><span>◇</span><i /><b /></div><strong>Nothing selected</strong><p>Select a node on the canvas to view its properties.</p></div>
