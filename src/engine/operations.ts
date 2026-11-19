@@ -200,3 +200,36 @@ export function updateNode(
     },
   };
 }
+
+/**
+ * Moves a node to a new graph-space position without changing its other data.
+ */
+export function moveNode(
+  workflow: Workflow,
+  nodeId: NodeId,
+  position: { x: number; y: number },
+): Workflow {
+  const node = workflow.nodes[nodeId];
+
+  if (!node) {
+    return workflow;
+  }
+
+  if (
+    node.position.x === position.x &&
+    node.position.y === position.y
+  ) {
+    return workflow;
+  }
+
+  return {
+    ...workflow,
+    nodes: {
+      ...workflow.nodes,
+      [nodeId]: {
+        ...node,
+        position: { ...position },
+      },
+    },
+  };
+}
