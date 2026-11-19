@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import type { PointerEvent } from "react";
 import type { WorkflowEdge, WorkflowNode } from "./engine/types";
 import { initialWorkflow } from "./editor/initialWorkflow";
+import { moveNode } from "./engine/operations";
 import "./styles.css";
 
 const palette = [
@@ -54,16 +56,19 @@ function NodeCard({
   node,
   selected,
   onSelect,
+  onDragStart,
 }: {
   node: WorkflowNode;
   selected: boolean;
   onSelect: () => void;
+  onDragStart: (event: PointerEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <button
       className={`graph-node ${selected ? "is-selected" : ""}`}
       style={{ left: node.position.x, top: node.position.y }}
       onClick={onSelect}
+      onPointerDown={onDragStart}
       type="button"
       aria-pressed={selected}
     >
@@ -94,8 +99,53 @@ function NodeCard({
 }
 
 export default function App() {
-  const [workflow] = useState(initialWorkflow);
+  const [workflow, setWorkflow] = useState(initialWorkflow);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const graphWorldRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{
+    nodeId: string;
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    startX: number;
+    startY: number;
+  } | null>(null);
+
+  const handleNodeDragStart = (node: WorkflowNode, event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedNodeId(node.id);
+    dragRef.current = {
+      nodeId: node.id,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startX: node.position.x,
+      startY: node.position.y,
+    };
+    viewportRef.current?.setPointerCapture(event.pointerId);
+  };
+
+  const handleCanvasPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const worldWidth = graphWorldRef.current?.getBoundingClientRect().width ?? 1320;
+    const scale = worldWidth / 1320 || 1;
+    const x = Math.max(0, drag.startX + (event.clientX - drag.startClientX) / scale);
+    const y = Math.max(0, drag.startY + (event.clientY - drag.startClientY) / scale);
+
+    setWorkflow((current) => moveNode(current, drag.nodeId, { x, y }));
+  };
+
+  const handleCanvasPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    if (dragRef.current?.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    if (viewportRef.current?.hasPointerCapture(event.pointerId)) {
+      viewportRef.current.releasePointerCapture(event.pointerId);
+    }
+  };
   const selectedNode = selectedNodeId ? workflow.nodes[selectedNodeId] : undefined;
   const nodes = Object.values(workflow.nodes);
   const edges = Object.values(workflow.edges);
@@ -146,15 +196,21 @@ export default function App() {
             <div className="breadcrumb"><span>Workflows</span><b>/</b><strong>Lead enrichment</strong></div>
             <div className="canvas-tools"><button disabled title="Select">↖</button><button disabled title="Pan">✋</button><span /><button disabled title="Zoom out">−</button><small>100%</small><button disabled title="Zoom in">+</button><span /><button disabled title="Fit view">⛶</button></div>
           </div>
-          <div className="canvas-viewport">
+          <div
+            className="canvas-viewport"
+            ref={viewportRef}
+            onPointerMove={handleCanvasPointerMove}
+            onPointerUp={handleCanvasPointerUp}
+            onPointerCancel={handleCanvasPointerUp}
+          >
             <div className="canvas-grid" />
             <div className="canvas-empty-hint"><span>✦</span> Workflow canvas <em>·</em> Select a node to inspect</div>
-            <div className="graph-world">
+            <div className="graph-world" ref={graphWorldRef}>
               <svg className="edge-layer" width="1320" height="620" aria-hidden="true">
                 {edges.map((edge) => <path key={edge.id} d={edgePath(edge, workflow.nodes)} className="graph-edge" />)}
               </svg>
               {nodes.map((node) => (
-                <NodeCard key={node.id} node={node} selected={selectedNodeId === node.id} onSelect={() => setSelectedNodeId(node.id)} />
+                <NodeCard key={node.id} node={node} selected={selectedNodeId === node.id} onSelect={() => setSelectedNodeId(node.id)} onDragStart={(event) => handleNodeDragStart(node, event)} />
               ))}
             </div>
             <div className="canvas-zoom"><button disabled>−</button><span>100%</span><button disabled>+</button><i /><button disabled>⌗</button></div>
