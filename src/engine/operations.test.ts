@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addEdge, addNode, removeNode } from "./operations";
+import { addEdge, addNode, removeEdge, removeNode } from "./operations";
 import type { Workflow, WorkflowEdge, WorkflowNode } from "./types";
 
 const createWorkflow = (): Workflow => ({
@@ -274,5 +274,57 @@ describe("addEdge", () => {
         target: { nodeId: "start", portId: "out" },
       }),
     ).toThrow('Input port "out" does not exist on node "start".');
+  });
+});
+
+describe("removeEdge", () => {
+  const createConnectedWorkflow = (): Workflow => ({
+    ...createWorkflow(),
+    nodes: {
+      "action-1": createActionNode("action-1"),
+      "action-2": createActionNode("action-2"),
+      "action-3": createActionNode("action-3"),
+    },
+    edges: {
+      "edge-1": createEdge("edge-1", "action-1", "action-2"),
+      "edge-2": createEdge("edge-2", "action-2", "action-3"),
+    },
+  });
+
+  it("removes the requested edge while preserving nodes and other edges", () => {
+    const workflow = createConnectedWorkflow();
+
+    const result = removeEdge(workflow, "edge-1");
+
+    expect(result.edges).toEqual({
+      "edge-2": workflow.edges["edge-2"],
+    });
+    expect(result.nodes).toBe(workflow.nodes);
+    expect(result.edges).not.toBe(workflow.edges);
+  });
+
+  it("preserves workflow metadata", () => {
+    const workflow = createConnectedWorkflow();
+
+    const result = removeEdge(workflow, "edge-1");
+
+    expect(result.id).toBe(workflow.id);
+    expect(result.version).toBe(workflow.version);
+  });
+
+  it("does not mutate the original workflow", () => {
+    const workflow = createConnectedWorkflow();
+
+    const result = removeEdge(workflow, "edge-1");
+
+    expect(workflow.edges).toHaveProperty("edge-1");
+    expect(result).not.toBe(workflow);
+    expect(result.edges).not.toBe(workflow.edges);
+  });
+
+  it("returns the original workflow when the edge does not exist", () => {
+    const workflow = createConnectedWorkflow();
+
+    expect(removeEdge(workflow, "missing-edge")).toBe(workflow);
   });
 });
