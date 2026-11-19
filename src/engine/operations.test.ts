@@ -170,7 +170,7 @@ describe("addEdge", () => {
     ).toThrow('An edge with id "edge-1" already exists.');
   });
 
-  it("rejects a missing source or target node", () => {
+  it("rejects missing source and target nodes", () => {
     const workflow = createTwoNodeWorkflow();
 
     expect(() =>
@@ -237,7 +237,7 @@ describe("addEdge", () => {
     ).toThrow("This connection would create a cycle.");
   });
 
-  it("rejects edges that violate Start and End node direction", () => {
+  it("enforces Start and End direction through their available ports", () => {
     const workflow: Workflow = {
       ...createWorkflow(),
       nodes: {
@@ -248,6 +248,7 @@ describe("addEdge", () => {
           position: { x: 0, y: 0 },
           outputs: [{ id: "out", label: "Output" }],
         },
+        action: createActionNode("action"),
         end: {
           id: "end",
           type: "end",
@@ -262,16 +263,16 @@ describe("addEdge", () => {
       addEdge(workflow, {
         id: "edge-1",
         source: { nodeId: "end", portId: "in" },
-        target: { nodeId: "start", portId: "out" },
+        target: { nodeId: "action", portId: "in" },
       }),
     ).toThrow('Output port "in" does not exist on node "end".');
 
     expect(() =>
       addEdge(workflow, {
         id: "edge-2",
-        source: { nodeId: "start", portId: "out" },
+        source: { nodeId: "action", portId: "out" },
         target: { nodeId: "start", portId: "out" },
       }),
-    ).toThrow("A node cannot connect to itself.");
+    ).toThrow('Input port "out" does not exist on node "start".');
   });
 });
