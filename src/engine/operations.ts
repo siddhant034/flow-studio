@@ -1,4 +1,9 @@
-import type { NodeId, Workflow, WorkflowNode } from "./types";
+import type {
+  NodeId,
+  Workflow,
+  WorkflowEdge,
+  WorkflowNode,
+} from "./types";
 
 export function addNode(
   workflow: Workflow,
@@ -37,5 +42,107 @@ export function removeNode(
     ...workflow,
     nodes,
     edges,
+  };
+}
+
+function hasOutputPort(node: WorkflowNode, portId: string): boolean {
+  return "outputs" in node && node.outputs.some((port) => port.id === portId);
+}
+
+function hasInputPort(node: WorkflowNode, portId: string): boolean {
+  return "inputs" in node && node.inputs.some((port) => port.id === portId);
+}
+
+function createsCycle(
+  workflow: Workflow,
+  sourceNodeId: NodeId,
+  targetNodeId: NodeId,
+): boolean {
+  const visited = new Set<NodeId>();
+  const pending = [targetNodeId];
+
+  while (pending.length > 0) {
+    const currentNodeId = pending.pop()!;
+
+    if (currentNodeId === sourceNodeId) {
+      return true;
+    }
+
+    if (visited.has(currentNodeId)) {
+      continue;
+    }
+
+    visited.add(currentNodeId);
+
+    for (const edge of Object.values(workflow.edges)) {
+      if (edge.source.nodeId === currentNodeId) {
+        pending.push(edge.target.nodeId);
+      }
+    }
+  }
+
+  return false;
+}
+
+export function addEdge(
+  workflow: Workflow,
+  edge: WorkflowEdge,
+): Workflow {
+  if (Object.hasOwn(workflow.edges, edge.id)) {
+    throw new Error(`An edge with id "${edge.id}" already exists.`);
+  }
+
+  const sourceNode = workflow.nodes[edge.source.nodeId];
+  if (!sourceNode) {
+    throw new Error(
+      `Source node "${edge.source.nodeId}" does not exist.`,
+    );
+  }
+
+  const targetNode = workflow.nodes[edge.target.nodeId];
+  if (!targetNode) {
+    throw new Error(
+      `Target node "${edge.target.nodeId}" does not exist.`,
+    );
+  }
+
+  if (edge.source.nodeId === edge.target.nodeId) {
+    throw new Error("A node cannot connect to itself.");
+  }
+
+  if (!hasOutputPort(sourceNode, edge.source.portId)) {
+    throw new Error(
+      `Output port "${edge.source.portId}" does not exist on node "${sourceNode.id}".`,
+    );
+  }
+
+  if (!hasInputPort(targetNode, edge.target.portId)) {
+    throw new Error(
+      `Input port "${edge.target.portId}" does not exist on node "${targetNode.id}".`,
+    );
+  }
+
+  const duplicateConnection = Object.values(workflow.edges).some(
+    (existingEdge) =>
+      existingEdge.source.nodeId === edge.source.nodeId &&
+      existingEdge.source.portId === edge.source.portId &&
+      existingEdge.target.nodeId === edge.target.nodeId &&
+      existingEdge.target.portId === edge.target.portId,
+  );
+
+  if (duplicateConnection) {
+    throw new Error("This connection already exists.");
+  }
+
+  if (createsCycle(workflow, edge.source.nodeId, edge.target.nodeId)) {
+    throw new Error("This connection would create a cycle.");
+  }
+
+  return {
+    ...workflow,
+    edges: {
+      ...workflow.edges,
+      [edge.id]: edge,
+    },
   };
 }
