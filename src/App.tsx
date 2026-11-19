@@ -1,16 +1,43 @@
 import { useRef, useState } from "react";
 import type { PointerEvent } from "react";
-import type { WorkflowEdge, WorkflowNode } from "./engine/types";
+import type { Point, WorkflowEdge, WorkflowNode } from "./engine/types";
 import { initialWorkflow } from "./editor/initialWorkflow";
-import { moveNode } from "./engine/operations";
+import { addNode, moveNode } from "./engine/operations";
 import "./styles.css";
 
 const palette = [
-  { icon: "↗", name: "Start", detail: "Entry point", tone: "mint" },
-  { icon: "⚡", name: "Action", detail: "Run a task", tone: "blue" },
-  { icon: "◇", name: "Condition", detail: "Branch logic", tone: "amber" },
-  { icon: "■", name: "End", detail: "Finish flow", tone: "rose" },
+  { icon: "↗", name: "Start", detail: "Entry point", tone: "mint", type: "start" as const },
+  { icon: "⚡", name: "Action", detail: "Run a task", tone: "blue", type: "action" as const },
+  { icon: "◇", name: "Condition", detail: "Branch logic", tone: "amber", type: "condition" as const },
+  { icon: "■", name: "End", detail: "Finish flow", tone: "rose", type: "end" as const },
 ];
+
+function createWorkflowNode(type: WorkflowNode["type"], id: string, position: Point): WorkflowNode {
+  const base = { id, position, label: type === "start" ? "Start" : type === "action" ? "New action" : type === "condition" ? "New condition" : "End" };
+
+  switch (type) {
+    case "start":
+      return { ...base, type, outputs: [{ id: "next", label: "Next" }] };
+    case "action":
+      return {
+        ...base,
+        type,
+        inputs: [{ id: "input", label: "Input" }],
+        outputs: [{ id: "next", label: "Next" }],
+        config: { action: "Configure action" },
+      };
+    case "condition":
+      return {
+        ...base,
+        type,
+        inputs: [{ id: "input", label: "Input" }],
+        outputs: [{ id: "yes", label: "Yes" }, { id: "no", label: "No" }],
+        config: { expression: "true" },
+      };
+    case "end":
+      return { ...base, type, inputs: [{ id: "input", label: "Input" }] };
+  }
+}
 
 function BrandMark() {
   return <div className="brand-mark"><span /><span /><span /></div>;
@@ -139,6 +166,17 @@ export default function App() {
     setWorkflow((current) => moveNode(current, drag.nodeId, { x, y }));
   };
 
+  const handleAddNode = (type: WorkflowNode["type"]) => {
+    const id = `${type}-${crypto.randomUUID().slice(0, 8)}`;
+    const position = {
+      x: 160 + (nodes.length % 3) * 70,
+      y: 430 + (Math.floor(nodes.length / 3) % 3) * 36,
+    };
+    const node = createWorkflowNode(type, id, position);
+    setWorkflow((current) => addNode(current, node));
+    setSelectedNodeId(id);
+  };
+
   const handleCanvasPointerUp = (event: PointerEvent<HTMLDivElement>) => {
     if (dragRef.current?.pointerId !== event.pointerId) return;
     dragRef.current = null;
@@ -180,14 +218,14 @@ export default function App() {
           <div className="library-section">
             <div className="section-label">BASICS <span>−</span></div>
             {palette.map((item) => (
-              <div className="palette-item" key={item.name}>
+              <button className="palette-item" key={item.name} type="button" onClick={() => handleAddNode(item.type)}>
                 <div className={`palette-icon ${item.tone}`}>{item.icon}</div>
                 <div><strong>{item.name}</strong><small>{item.detail}</small></div>
-                <span className="drag-handle">⠿</span>
-              </div>
+                <span className="drag-handle">＋</span>
+              </button>
             ))}
           </div>
-          <div className="panel-tip"><span>✦</span><div><strong>Explore the graph</strong><p>Select any node to inspect its properties. Editing and connections are coming next.</p></div></div>
+          <div className="panel-tip"><span>✦</span><div><strong>Explore the graph</strong><p>Select a node to inspect it, or click a node type to add it to the canvas.</p></div></div>
           <div className="left-footer"><span className="status-dot" /> Graph engine ready <span className="version">v0.1.0</span></div>
         </aside>
 
