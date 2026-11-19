@@ -199,3 +199,8 @@ button:disabled { cursor: default; opacity: .65; }
 
 .palette-item { width: 100%; border: 0; background: transparent; text-align: left; font: inherit; }
 .palette-item:focus-visible { outline: 2px solid #7569df; outline-offset: 1px; }
+
+.inspector-input { display: block; width: 100%; border: 1px solid #e8ebf0; border-radius: 6px; color: #596371; background: #fff; font: 10px 'DM Sans', sans-serif; padding: 9px; outline: none; }
+.inspector-input:focus { border-color: #938be8; box-shadow: 0 0 0 3px #7569df18; }
+.delete-node-button { width: 100%; margin-top: 18px; padding: 9px; border: 1px solid #f1dfe2; border-radius: 6px; background: #fff; color: #c66b79; font-size: 10px; font-weight: 600; }
+.delete-node-button:hover { background: #fff7f8; border-color: #eac6cc; }
