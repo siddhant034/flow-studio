@@ -1,5 +1,4 @@
 import type {
-  EdgeId,
   NodeId,
   Workflow,
   WorkflowEdge,
