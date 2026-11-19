@@ -3,6 +3,8 @@ import type { Workflow } from "../engine/types";
 export const initialWorkflow: Workflow = {
   id: "lead-enrichment",
   version: 1,
+  name: "Lead enrichment",
+  description: "Qualify incoming leads and route them to the right destination.",
   nodes: {
     start: {
       id: "start",
