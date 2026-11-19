@@ -174,6 +174,7 @@ export default function App() {
     event.preventDefault();
     event.stopPropagation();
     setSelectedNodeId(node.id);
+    setSelectedEdgeId(null);
     dragRef.current = {
       nodeId: node.id,
       pointerId: event.pointerId,
@@ -203,7 +204,7 @@ export default function App() {
   const handleCanvasPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || dragRef.current) return;
     const target = event.target as HTMLElement;
-    if (target.closest(".graph-node")) return;
+    if (target.closest(".graph-node, .graph-edge, .graph-port")) return;
 
     panRef.current = {
       pointerId: event.pointerId,
@@ -388,7 +389,7 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [history, selectedNodeId]);
+  }, [history, selectedNodeId, selectedEdgeId]);
 
   const handleValidate = () => {
     const result = validateWorkflow(workflowRef.current);
@@ -522,7 +523,7 @@ export default function App() {
                 {connectionDraft && <path d={`M ${connectionDraft.x1} ${connectionDraft.y1} C ${connectionDraft.x1 + 60} ${connectionDraft.y1}, ${connectionDraft.x2 - 60} ${connectionDraft.y2}, ${connectionDraft.x2} ${connectionDraft.y2}`} className="graph-edge graph-edge-draft" />}
               </svg>
               {nodes.map((node) => (
-                <NodeCard key={node.id} node={node} selected={selectedNodeId === node.id} onSelect={() => setSelectedNodeId(node.id)} onDragStart={(event) => handleNodeDragStart(node, event)} onConnectStart={(portId, event) => handleConnectStart(node, portId, event)} />
+                <NodeCard key={node.id} node={node} selected={selectedNodeId === node.id} onSelect={() => { setSelectedNodeId(node.id); setSelectedEdgeId(null); }} onDragStart={(event) => handleNodeDragStart(node, event)} onConnectStart={(portId, event) => handleConnectStart(node, portId, event)} />
               ))}
             </div>
             <div className="canvas-zoom"><button onClick={() => changeZoom(-0.1)} aria-label="Zoom out">−</button><span>{Math.round(viewport.zoom * 100)}%</span><button onClick={() => changeZoom(0.1)} aria-label="Zoom in">+</button><i /><button onClick={fitCanvas} aria-label="Fit view">⌗</button></div>
