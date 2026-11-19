@@ -204,3 +204,8 @@ button:disabled { cursor: default; opacity: .65; }
 .inspector-input:focus { border-color: #938be8; box-shadow: 0 0 0 3px #7569df18; }
 .delete-node-button { width: 100%; margin-top: 18px; padding: 9px; border: 1px solid #f1dfe2; border-radius: 6px; background: #fff; color: #c66b79; font-size: 10px; font-weight: 600; }
 .delete-node-button:hover { background: #fff7f8; border-color: #eac6cc; }
+
+.canvas-viewport { cursor: grab; touch-action: none; }
+.canvas-viewport:active { cursor: grabbing; }
+.canvas-zoom button:not(:disabled), .canvas-tools button:not(:disabled) { color: #606b79; }
+.canvas-zoom button:not(:disabled):hover, .canvas-tools button:not(:disabled):hover { color: #5145bf; background: #f1f0ff; }
