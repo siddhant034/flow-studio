@@ -264,7 +264,7 @@ export default function App() {
           target: { nodeId: targetNodeId, portId: targetPortId },
         };
         try {
-          setWorkflow((current) => addEdge(current, edge));
+          setWorkflow(addEdge(workflow, edge));
           setNotice("Connection created");
         } catch (error) {
           setNotice(error instanceof Error ? error.message : "Unable to create connection");
