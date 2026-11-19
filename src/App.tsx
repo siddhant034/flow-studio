@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { PointerEvent } from "react";
+import type { ChangeEvent, PointerEvent } from "react";
 import type { Point, WorkflowEdge, WorkflowNode } from "./engine/types";
 import { initialWorkflow } from "./editor/initialWorkflow";
 import { addEdge, addNode, moveNode, removeNode, updateNode } from "./engine/operations";
 import { commitHistory, createHistory, redoHistory, undoHistory } from "./engine/history";
+import { deserializeWorkflow, serializeWorkflow } from "./engine/serialization";
+import { createWorkflowStorage } from "./engine/storage";
 import "./styles.css";
 
 const palette = [
@@ -132,6 +134,8 @@ export default function App() {
   const [workflow, setWorkflowState] = useState(initialWorkflow);
   const [history, setHistory] = useState(() => createHistory(initialWorkflow));
   const workflowRef = useRef(workflow);
+  const storageRef = useRef<ReturnType<typeof createWorkflowStorage> | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   workflowRef.current = workflow;
 
   const commitWorkflow = (nextWorkflow: typeof initialWorkflow) => {
@@ -330,6 +334,21 @@ export default function App() {
   };
 
   useEffect(() => {
+    try {
+      storageRef.current = createWorkflowStorage(window.localStorage);
+      const savedWorkflow = storageRef.current.load();
+      if (savedWorkflow) {
+        workflowRef.current = savedWorkflow;
+        setWorkflowState(savedWorkflow);
+        setHistory(createHistory(savedWorkflow));
+        setNotice("Loaded your saved workflow");
+      }
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Unable to load saved workflow");
+    }
+  }, []);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target;
       const isEditingText = target instanceof HTMLElement &&
@@ -358,6 +377,45 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [history, selectedNodeId]);
 
+  const handleSave = () => {
+    try {
+      storageRef.current?.save(workflowRef.current);
+      setNotice("Workflow saved in this browser");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Unable to save workflow");
+    }
+  };
+
+  const handleExport = () => {
+    const json = serializeWorkflow(workflowRef.current);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${workflowRef.current.id}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setNotice("Workflow JSON exported");
+  };
+
+  const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const imported = deserializeWorkflow(await file.text());
+      workflowRef.current = imported;
+      setWorkflowState(imported);
+      setHistory(createHistory(imported));
+      setSelectedNodeId(null);
+      setNotice("Workflow imported successfully");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Unable to import workflow");
+    } finally {
+      event.target.value = "";
+    }
+  };
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -372,8 +430,10 @@ export default function App() {
           <button className="icon-button" onClick={handleUndo} disabled={history.past.length === 0} aria-label="Undo" title="Undo (⌘Z)">↶</button>
           <button className="icon-button" onClick={handleRedo} disabled={history.future.length === 0} aria-label="Redo" title="Redo (⌘⇧Z)">↷</button>
           <span className="topbar-divider" />
-          <button className="share-button" disabled>Share</button>
-          <button className="publish-button" disabled>Publish <span>↗</span></button>
+          <button className="share-button" type="button" onClick={() => importInputRef.current?.click()}>Import</button>
+          <button className="share-button" type="button" onClick={handleExport}>Export</button>
+          <button className="publish-button" type="button" onClick={handleSave}>Save</button>
+          <input ref={importInputRef} type="file" accept="application/json,.json" hidden onChange={handleImportFile} />
           <div className="avatar">S</div>
         </div>
       </header>
