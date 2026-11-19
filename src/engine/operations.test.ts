@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addEdge, addNode, removeEdge, removeNode } from "./operations";
+import { addEdge, addNode, removeEdge, removeNode, updateNode } from "./operations";
 import type { Workflow, WorkflowEdge, WorkflowNode } from "./types";
 
 const createWorkflow = (): Workflow => ({
@@ -326,5 +326,86 @@ describe("removeEdge", () => {
     const workflow = createConnectedWorkflow();
 
     expect(removeEdge(workflow, "missing-edge")).toBe(workflow);
+  });
+});
+
+describe("updateNode", () => {
+  const createWorkflowWithNode = (): Workflow => ({
+    ...createWorkflow(),
+    nodes: {
+      "action-1": createActionNode("action-1"),
+      "action-2": createActionNode("action-2"),
+    },
+  });
+
+  it("updates a node immutably", () => {
+    const workflow = createWorkflowWithNode();
+    const result = updateNode(workflow, "action-1", (node) => ({
+      ...node,
+      label: "Updated action",
+      position: { x: 240, y: 160 },
+    }));
+
+    expect(result.nodes["action-1"].label).toBe("Updated action");
+    expect(result.nodes["action-1"].position).toEqual({ x: 240, y: 160 });
+    expect(workflow.nodes["action-1"].label).toBe("Send email");
+    expect(result).not.toBe(workflow);
+    expect(result.nodes).not.toBe(workflow.nodes);
+  });
+
+  it("preserves unrelated nodes, edges, and workflow metadata", () => {
+    const workflow: Workflow = {
+      ...createWorkflowWithNode(),
+      edges: { "edge-1": createEdge("edge-1", "action-1", "action-2") },
+    };
+
+    const result = updateNode(workflow, "action-1", (node) => ({
+      ...node,
+      label: "Updated",
+    }));
+
+    expect(result.id).toBe(workflow.id);
+    expect(result.version).toBe(workflow.version);
+    expect(result.nodes["action-2"]).toBe(workflow.nodes["action-2"]);
+    expect(result.edges).toBe(workflow.edges);
+  });
+
+  it("returns the original workflow when the node does not exist", () => {
+    const workflow = createWorkflowWithNode();
+
+    expect(
+      updateNode(workflow, "missing-node", (node) => node),
+    ).toBe(workflow);
+  });
+
+  it("returns the original workflow when the updater returns the same node", () => {
+    const workflow = createWorkflowWithNode();
+
+    expect(
+      updateNode(workflow, "action-1", (node) => node),
+    ).toBe(workflow);
+  });
+
+  it("does not allow changing the node ID", () => {
+    const workflow = createWorkflowWithNode();
+
+    expect(() =>
+      updateNode(workflow, "action-1", (node) => ({
+        ...node,
+        id: "different-id",
+      })),
+    ).toThrow("A node update cannot change its ID.");
+  });
+
+  it("does not allow changing the node type", () => {
+    const workflow = createWorkflowWithNode();
+
+    expect(() =>
+      updateNode(workflow, "action-1", (node) => ({
+        ...node,
+        type: "condition",
+        config: { expression: "true" },
+      })),
+    ).toThrow("A node update cannot change its type.");
   });
 });
