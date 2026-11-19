@@ -5,6 +5,8 @@ import type { Workflow } from "./types";
 const workflow: Workflow = {
   id: "workflow-1",
   version: 1,
+  name: "Lead enrichment",
+  description: "Qualify incoming leads",
   nodes: {
     start: {
       id: "start",
