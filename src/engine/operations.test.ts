@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addEdge, addNode, moveNode, removeEdge, removeNode, updateNode, updateWorkflowMetadata } from "./operations";
+import { addEdge, addNode, duplicateWorkflow, moveNode, removeEdge, removeNode, updateNode, updateWorkflowMetadata } from "./operations";
 import type { Workflow, WorkflowEdge, WorkflowNode } from "./types";
 
 const createWorkflow = (): Workflow => ({
@@ -503,8 +503,7 @@ describe("updateWorkflowMetadata", () => {
 });
 
 describe("duplicateWorkflow", () => {
-  it("copies the complete graph with remapped IDs and preserved connections", async () => {
-    const { duplicateWorkflow } = await import("./operations");
+  it("copies the complete graph with remapped IDs and preserved connections", () => {
     const workflow: Workflow = {
       ...createWorkflow(),
       name: "Lead flow",
@@ -530,7 +529,7 @@ describe("duplicateWorkflow", () => {
     expect(workflow.nodes["action-1"].label).toBe("Send email");
   });
 
-  it("rejects an empty or reused workflow ID", async () => {
+  it("rejects an empty or reused workflow ID", () => {
     const { duplicateWorkflow } = await import("./operations");
     const workflow = createWorkflow();
     expect(() => duplicateWorkflow(workflow, "")).toThrow("new, non-empty ID");

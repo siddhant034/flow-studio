@@ -5,6 +5,14 @@ import App from "./App";
 
 beforeEach(() => {
   window.localStorage.clear();
+  class TestPointerEvent extends MouseEvent {
+    pointerId: number;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 0;
+    }
+  }
+  Object.defineProperty(window, "PointerEvent", { configurable: true, value: TestPointerEvent });
   Object.defineProperty(HTMLElement.prototype, "setPointerCapture", {
     configurable: true,
     value: () => undefined,
@@ -92,6 +100,24 @@ describe("workflow editor interactions", () => {
     fireEvent.change(screen.getByLabelText("Label"), { target: { value: "Normalize lead" } });
 
     expect(screen.getByRole("button", { name: /Node Normalize lead/ })).toBeTruthy();
+  });
+
+  it("duplicates the full workflow with its graph intact", () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate" }));
+
+    expect(screen.getAllByText("Lead enrichment copy").length).toBeGreaterThan(0);
+    expect(document.querySelectorAll(".graph-edge")).toHaveLength(4);
+    expect(screen.getByRole("status").textContent).toContain("Workflow duplicated");
+  });
+
+  it("connects nodes using only the keyboard", () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole("button", { name: /Start connection from New lead received, Next output/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Connect to Send to sales, Input input/ }));
+
+    expect(document.querySelectorAll(".graph-edge")).toHaveLength(5);
+    expect(screen.getByRole("status").textContent).toContain("Connection created");
   });
 
   it("deletes a selected node and removes it from the canvas", () => {

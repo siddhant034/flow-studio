@@ -189,7 +189,7 @@ export default function App() {
     startY: number;
   } | null>(null);
 
-  const handleNodeDragStart = (node: WorkflowNode, event: PointerEvent<HTMLButtonElement>) => {
+  const handleNodeDragStart = (node: WorkflowNode, event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
     setSelectedNodeId(node.id);
@@ -380,7 +380,7 @@ export default function App() {
     commitWorkflow(removeNode(workflowRef.current, selectedNodeId));
     setSelectedNodeId(null); setSelectedEdgeId(null);
     setNotice(`${deletedLabel} deleted`);
-    requestAnimationFrame(() => viewportRef.current?.focus());
+    viewportRef.current?.focus();
   };
 
   const handleDuplicateWorkflow = () => {
