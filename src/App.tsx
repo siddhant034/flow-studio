@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import type { PointerEvent } from "react";
 import type { Point, WorkflowEdge, WorkflowNode } from "./engine/types";
 import { initialWorkflow } from "./editor/initialWorkflow";
-import { addNode, moveNode } from "./engine/operations";
+import { addNode, moveNode, removeNode, updateNode } from "./engine/operations";
 import "./styles.css";
 
 const palette = [
@@ -188,6 +188,17 @@ export default function App() {
   const nodes = Object.values(workflow.nodes);
   const edges = Object.values(workflow.edges);
 
+  const updateSelectedNode = (updater: (node: WorkflowNode) => WorkflowNode) => {
+    if (!selectedNodeId) return;
+    setWorkflow((current) => updateNode(current, selectedNodeId, updater));
+  };
+
+  const handleDeleteSelectedNode = () => {
+    if (!selectedNodeId) return;
+    setWorkflow((current) => removeNode(current, selectedNodeId));
+    setSelectedNodeId(null);
+  };
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -262,11 +273,11 @@ export default function App() {
             <div className="selected-inspector">
               <div className="selected-node-type"><span className={`node-symbol ${nodeTone(selectedNode)}`}>{nodeIcon(selectedNode)}</span><div><strong>{selectedNode.label}</strong><small>{selectedNode.type.toUpperCase()} NODE</small></div></div>
               <label>Node ID</label><div className="fake-input">{selectedNode.id}</div>
-              <label>Label</label><div className="fake-input">{selectedNode.label}</div>
+              <label htmlFor="node-label">Label</label><input id="node-label" className="inspector-input" value={selectedNode.label} onChange={(event) => updateSelectedNode((node) => ({ ...node, label: event.target.value }))} />
               <label>Position</label><div className="position-fields"><div><small>X</small><strong>{selectedNode.position.x}</strong></div><div><small>Y</small><strong>{selectedNode.position.y}</strong></div></div>
-              {selectedNode.type === "action" && <><label>Action</label><div className="fake-input">{selectedNode.config.action}</div></>}
-              {selectedNode.type === "condition" && <><label>Expression</label><div className="fake-input">{selectedNode.config.expression}</div></>}
-              <div className="inspector-note">Properties are read-only in this milestone.</div>
+              {selectedNode.type === "action" && <><label htmlFor="node-action">Action</label><input id="node-action" className="inspector-input" value={selectedNode.config.action} onChange={(event) => updateSelectedNode((node) => node.type === "action" ? { ...node, config: { action: event.target.value } } : node)} /></>}
+              {selectedNode.type === "condition" && <><label htmlFor="node-expression">Expression</label><input id="node-expression" className="inspector-input" value={selectedNode.config.expression} onChange={(event) => updateSelectedNode((node) => node.type === "condition" ? { ...node, config: { expression: event.target.value } } : node)} /></>}
+              <button className="delete-node-button" type="button" onClick={handleDeleteSelectedNode}>Delete node</button>
             </div>
           ) : (
             <div className="inspector-empty"><div className="inspector-art"><span>◇</span><i /><b /></div><strong>Nothing selected</strong><p>Select a node on the canvas to view its properties.</p></div>
