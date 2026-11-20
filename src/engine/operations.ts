@@ -162,3 +162,41 @@ export function removeEdge(
     edges,
   };
 }
+
+/**
+ * Updates an existing node using an immutable updater.
+ * Node identity and node kind are stable across updates.
+ */
+export function updateNode(
+  workflow: Workflow,
+  nodeId: NodeId,
+  updater: (node: WorkflowNode) => WorkflowNode,
+): Workflow {
+  const currentNode = workflow.nodes[nodeId];
+
+  if (!currentNode) {
+    return workflow;
+  }
+
+  const updatedNode = updater(currentNode);
+
+  if (updatedNode.id !== currentNode.id) {
+    throw new Error("A node update cannot change its ID.");
+  }
+
+  if (updatedNode.type !== currentNode.type) {
+    throw new Error("A node update cannot change its type.");
+  }
+
+  if (updatedNode === currentNode) {
+    return workflow;
+  }
+
+  return {
+    ...workflow,
+    nodes: {
+      ...workflow.nodes,
+      [nodeId]: updatedNode,
+    },
+  };
+}
