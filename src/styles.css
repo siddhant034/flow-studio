@@ -215,3 +215,17 @@ button:disabled { cursor: default; opacity: .65; }
 .graph-port-output:hover { border-color: #6558d9; box-shadow: 0 0 0 4px #6558d91c; }
 .graph-edge-draft { stroke: #7569df; stroke-width: 2; stroke-dasharray: 5 4; }
 .canvas-notice { position: absolute; top: 52px; left: 50%; transform: translateX(-50%); z-index: 4; padding: 8px 12px; border: 1px solid #e8e5ff; border-radius: 7px; background: #fff; box-shadow: 0 3px 12px #2a31500d; color: #7569c8; font-size: 10px; white-space: nowrap; }
+
+.validate-button { margin-left: auto; border: 1px solid #e6e4f7; background: #fff; color: #665bc2; border-radius: 6px; padding: 7px 10px; font-size: 10px; font-weight: 600; }
+.validate-button:hover { background: #f8f7ff; border-color: #d6d1f5; }
+.validation-panel { position: absolute; z-index: 5; top: 54px; right: 18px; width: min(340px, calc(100% - 36px)); max-height: min(55%, 360px); overflow: auto; background: #fff; border: 1px solid #e6e9ef; border-radius: 9px; box-shadow: 0 8px 28px #29364a18; padding: 13px; }
+.validation-panel-heading { display: flex; align-items: center; justify-content: space-between; color: #424c5b; font-size: 11px; }
+.validation-panel-heading button { border: 0; background: transparent; color: #9aa2ad; font-size: 18px; }
+.validation-panel ul { list-style: none; padding: 0; margin: 10px 0 0; }
+.validation-panel li { border-top: 1px solid #f0f1f4; padding: 9px 0; }
+.validation-panel li span { display: block; color: #6d7684; font-size: 10px; line-height: 1.45; }
+.validation-panel li small { display: block; color: #a2aab5; font: 9px 'DM Mono', monospace; margin-top: 4px; }
+.validation-success { margin: 10px 0 2px; color: #379a78; font-size: 10px; }
+@media (max-width: 680px) {
+  .validate-button { padding: 6px 7px; font-size: 9px; }
+}
