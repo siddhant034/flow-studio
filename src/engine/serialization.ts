@@ -92,7 +92,12 @@ function isWorkflow(value: unknown): value is Workflow {
     return false;
   }
 
+  const metadataValid =
+    (!("name" in value) || typeof value.name === "string") &&
+    (!("description" in value) || typeof value.description === "string");
+
   return (
+    metadataValid &&
     Object.values(value.nodes).every(isNode) &&
     Object.values(value.edges).every(isEdge)
   );

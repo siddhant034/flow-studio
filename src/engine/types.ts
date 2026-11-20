@@ -67,6 +67,8 @@ export type WorkflowEdge = {
 export type Workflow = {
   id: string;
   version: 1;
+  name?: string;
+  description?: string;
   nodes: Record<NodeId, WorkflowNode>;
   edges: Record<EdgeId, WorkflowEdge>;
 };

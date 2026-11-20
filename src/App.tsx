@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, PointerEvent } from "react";
 import type { Point, WorkflowEdge, WorkflowNode } from "./engine/types";
 import { initialWorkflow } from "./editor/initialWorkflow";
-import { addEdge, addNode, moveNode, removeEdge, removeNode, updateNode } from "./engine/operations";
+import { addEdge, addNode, moveNode, removeEdge, removeNode, updateNode, updateWorkflowMetadata } from "./engine/operations";
 import { commitHistory, createHistory, redoHistory, undoHistory } from "./engine/history";
 import { deserializeWorkflow, serializeWorkflow } from "./engine/serialization";
 import { createWorkflowStorage } from "./engine/storage";
@@ -444,8 +444,8 @@ export default function App() {
           <BrandMark />
           <span className="brand-name">flow<span>studio</span></span>
           <span className="topbar-divider" />
-          <span className="workflow-name">Lead enrichment <span>⌄</span></span>
-          <span className="saved-state"><i /> Example workflow</span>
+          <span className="workflow-name">{workflow.name || workflow.id} <span>⌄</span></span>
+          <span className="saved-state"><i /> Local workflow</span>
         </div>
         <div className="topbar-actions">
           <button className="icon-button" onClick={handleUndo} disabled={history.past.length === 0} aria-label="Undo" title="Undo (⌘Z)">↶</button>
@@ -482,7 +482,7 @@ export default function App() {
 
         <section className="canvas-area">
           <div className="canvas-toolbar">
-            <div className="breadcrumb"><span>Workflows</span><b>/</b><strong>Lead enrichment</strong></div>
+            <div className="breadcrumb"><span>Workflows</span><b>/</b><strong>{workflow.name || workflow.id}</strong></div>
             <button className="validate-button" type="button" onClick={handleValidate}>✓ Validate</button>
             <div className="canvas-tools"><button disabled title="Select">↖</button><button disabled title="Pan">✋</button><span /><button onClick={() => changeZoom(-0.1)} title="Zoom out">−</button><small>{Math.round(viewport.zoom * 100)}%</small><button onClick={() => changeZoom(0.1)} title="Zoom in">+</button><span /><button onClick={fitCanvas} title="Fit view">⛶</button></div>
           </div>
@@ -554,7 +554,15 @@ export default function App() {
           ) : (
             <div className="inspector-empty"><div className="inspector-art"><span>◇</span><i /><b /></div><strong>Nothing selected</strong><p>Select a node on the canvas to view its properties.</p></div>
           )}
-          <div className="inspector-bottom"><div className="section-label">WORKFLOW DETAILS</div><label>Workflow name</label><div className="fake-input">Lead enrichment</div><label>Description</label><div className="fake-textarea">Qualify incoming leads and route them to the right destination.</div><div className="metadata-row"><span>Nodes</span><strong>{nodes.length}</strong></div><div className="metadata-row"><span>Connections</span><strong>{edges.length}</strong></div></div>
+          <div className="inspector-bottom">
+            <div className="section-label">WORKFLOW DETAILS</div>
+            <label htmlFor="workflow-name">Workflow name</label>
+            <input id="workflow-name" className="inspector-input" value={workflow.name ?? ""} placeholder="Untitled workflow" onChange={(event) => commitWorkflow(updateWorkflowMetadata(workflowRef.current, { name: event.target.value }))} />
+            <label htmlFor="workflow-description">Description</label>
+            <textarea id="workflow-description" className="inspector-textarea" value={workflow.description ?? ""} placeholder="Add a short description..." onChange={(event) => commitWorkflow(updateWorkflowMetadata(workflowRef.current, { description: event.target.value }))} />
+            <div className="metadata-row"><span>Nodes</span><strong>{nodes.length}</strong></div>
+            <div className="metadata-row"><span>Connections</span><strong>{edges.length}</strong></div>
+          </div>
         </aside>
       </div>
       <footer className="app-footer"><span><i /> Graph loaded</span><span>Flow Studio <b>·</b> A visual workflow editor</span><span>⌘ + K <b>Shortcuts</b></span></footer>
