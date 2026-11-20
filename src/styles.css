@@ -209,3 +209,9 @@ button:disabled { cursor: default; opacity: .65; }
 .canvas-viewport:active { cursor: grabbing; }
 .canvas-zoom button:not(:disabled), .canvas-tools button:not(:disabled) { color: #606b79; }
 .canvas-zoom button:not(:disabled):hover, .canvas-tools button:not(:disabled):hover { color: #5145bf; background: #f1f0ff; }
+
+.graph-port { cursor: crosshair; touch-action: none; }
+.graph-port-input:hover { border-color: #6558d9; box-shadow: 0 0 0 4px #6558d91c; }
+.graph-port-output:hover { border-color: #6558d9; box-shadow: 0 0 0 4px #6558d91c; }
+.graph-edge-draft { stroke: #7569df; stroke-width: 2; stroke-dasharray: 5 4; }
+.canvas-notice { position: absolute; top: 52px; left: 50%; transform: translateX(-50%); z-index: 4; padding: 8px 12px; border: 1px solid #e8e5ff; border-radius: 7px; background: #fff; box-shadow: 0 3px 12px #2a31500d; color: #7569c8; font-size: 10px; white-space: nowrap; }
