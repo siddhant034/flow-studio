@@ -192,3 +192,7 @@ button:disabled { cursor: default; opacity: .65; }
 @media (max-width: 680px) {
   .graph-world { transform: translate(-50%, -50%) scale(.48); }
 }
+
+.graph-node { cursor: grab; user-select: none; touch-action: none; }
+.graph-node:active { cursor: grabbing; }
+.canvas-viewport { touch-action: pan-x pan-y; }
