@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, PointerEvent } from "react";
 import type { Point, WorkflowEdge, WorkflowNode } from "./engine/types";
 import { initialWorkflow } from "./editor/initialWorkflow";
-import { addEdge, addNode, moveNode, removeEdge, removeNode, updateNode, updateWorkflowMetadata } from "./engine/operations";
+import { addEdge, addNode, duplicateWorkflow, moveNode, removeEdge, removeNode, updateNode, updateWorkflowMetadata } from "./engine/operations";
 import { commitHistory, createHistory, redoHistory, undoHistory } from "./engine/history";
 import { deserializeWorkflow, serializeWorkflow } from "./engine/serialization";
 import { createWorkflowStorage } from "./engine/storage";
@@ -141,7 +141,7 @@ function NodeCard({
         <button key={port.id} type="button" className={`graph-port graph-port-input ${connectionTarget ? "is-drop-target" : ""}`} data-port-direction="input" data-node-id={node.id} data-port-id={port.id} style={{ top: portOffset(node, port.id, "input") }} title={port.label} aria-label={`Connect to ${node.label}, ${port.label} input`} onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onConnectTarget(port.id); }} />
       ))}
       {outputPorts(node).map((port) => (
-        <button key={port.id} type="button" className="graph-port graph-port-output" data-port-direction="output" data-node-id={node.id} data-port-id={port.id} onPointerDown={(event) => onConnectStart(port.id, event)} onClick={(event) => { event.stopPropagation(); onConnectActivate(port.id); }} style={{ top: portOffset(node, port.id, "output") }} title={`Connect from ${port.label}`} aria-label={`Start connection from ${node.label}, ${port.label} output`} />
+        <button key={port.id} type="button" className="graph-port graph-port-output" data-port-direction="output" data-node-id={node.id} data-port-id={port.id} onPointerDown={(event) => onConnectStart(port.id, event)} onClick={(event) => { event.stopPropagation(); if (event.detail === 0) onConnectActivate(port.id); }} style={{ top: portOffset(node, port.id, "output") }} title={`Connect from ${port.label}`} aria-label={`Start connection from ${node.label}, ${port.label} output`} />
       ))}
       {node.type === "condition" && <div className="condition-labels"><span>Yes</span><span>No</span></div>}
     </div>
@@ -160,6 +160,7 @@ export default function App() {
     workflowRef.current = nextWorkflow;
     setWorkflowState(nextWorkflow);
     setHistory((current) => commitHistory(current, nextWorkflow));
+    setIsDirty(true);
   };
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
@@ -167,6 +168,7 @@ export default function App() {
   const [connectionDraft, setConnectionDraft] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [connectionTargetId, setConnectionTargetId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [isDirty, setIsDirty] = useState(false);
   const [validationIssues, setValidationIssues] = useState<WorkflowValidationIssue[] | null>(null);
   const connectionRef = useRef<{ pointerId: number; sourceNodeId: string; sourcePortId: string } | null>(null);
   const panRef = useRef<{
@@ -381,11 +383,25 @@ export default function App() {
     requestAnimationFrame(() => viewportRef.current?.focus());
   };
 
+  const handleDuplicateWorkflow = () => {
+    const current = workflowRef.current;
+    const duplicate = duplicateWorkflow(current, `${current.id}-copy-${crypto.randomUUID().slice(0, 6)}`);
+    workflowRef.current = duplicate;
+    setWorkflowState(duplicate);
+    setHistory(createHistory(duplicate));
+    setSelectedNodeId(null);
+    setSelectedEdgeId(null);
+    setValidationIssues(null);
+    setIsDirty(true);
+    setNotice("Workflow duplicated. Save to keep this copy in this browser.");
+  };
+
   const handleUndo = () => {
     const nextHistory = undoHistory(history);
     setHistory(nextHistory);
     workflowRef.current = nextHistory.present;
     setWorkflowState(nextHistory.present);
+    setIsDirty(true);
   };
 
   const handleRedo = () => {
@@ -393,6 +409,7 @@ export default function App() {
     setHistory(nextHistory);
     workflowRef.current = nextHistory.present;
     setWorkflowState(nextHistory.present);
+    setIsDirty(true);
   };
 
   useEffect(() => {
@@ -403,6 +420,7 @@ export default function App() {
         workflowRef.current = savedWorkflow;
         setWorkflowState(savedWorkflow);
         setHistory(createHistory(savedWorkflow));
+        setIsDirty(false);
         setNotice("Loaded your saved workflow");
       }
     } catch (error) {
@@ -453,6 +471,7 @@ export default function App() {
   const handleSave = () => {
     try {
       storageRef.current?.save(workflowRef.current);
+      setIsDirty(false);
       setNotice("Workflow saved in this browser");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to save workflow");
@@ -480,6 +499,7 @@ export default function App() {
       workflowRef.current = imported;
       setWorkflowState(imported);
       setHistory(createHistory(imported));
+      setIsDirty(true);
       setSelectedNodeId(null);
       setSelectedEdgeId(null);
       setNotice("Workflow imported successfully");
@@ -498,12 +518,13 @@ export default function App() {
           <span className="brand-name">flow<span>studio</span></span>
           <span className="topbar-divider" />
           <span className="workflow-name">{workflow.name || workflow.id} <span>⌄</span></span>
-          <span className="saved-state"><i /> Local workflow</span>
+          <span className={`saved-state ${isDirty ? "is-dirty" : ""}`}><i /> {isDirty ? "Unsaved changes" : "Saved locally"}</span>
         </div>
         <div className="topbar-actions">
           <button className="icon-button" onClick={handleUndo} disabled={history.past.length === 0} aria-label="Undo" title="Undo (⌘Z)">↶</button>
           <button className="icon-button" onClick={handleRedo} disabled={history.future.length === 0} aria-label="Redo" title="Redo (⌘⇧Z)">↷</button>
           <span className="topbar-divider" />
+          <button className="share-button" type="button" onClick={handleDuplicateWorkflow}>Duplicate</button>
           <button className="share-button" type="button" onClick={() => importInputRef.current?.click()}>Import</button>
           <button className="share-button" type="button" onClick={handleExport}>Export</button>
           <button className="publish-button" type="button" onClick={handleSave}>Save</button>

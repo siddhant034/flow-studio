@@ -252,3 +252,55 @@ export function updateWorkflowMetadata(
     ...(updates.description !== undefined ? { description: updates.description } : {}),
   };
 }
+
+/**
+ * Creates an independent copy of a workflow, remapping every node and edge ID
+ * while preserving topology, ports, configuration, and metadata.
+ */
+export function duplicateWorkflow(workflow: Workflow, newWorkflowId: string): Workflow {
+  if (!newWorkflowId.trim() || newWorkflowId === workflow.id) {
+    throw new Error("A duplicate workflow must have a new, non-empty ID.");
+  }
+
+  const nodeIdMap = new Map(
+    Object.keys(workflow.nodes).map((nodeId) => [nodeId, `${newWorkflowId}-${nodeId}`]),
+  );
+  const edgeIdMap = new Map(
+    Object.keys(workflow.edges).map((edgeId) => [edgeId, `${newWorkflowId}-${edgeId}`]),
+  );
+
+  const nodes = Object.fromEntries(
+    Object.entries(workflow.nodes).map(([nodeId, node]) => {
+      const copiedNode: WorkflowNode = {
+        ...node,
+        id: nodeIdMap.get(nodeId)!,
+        label: `${node.label} copy`,
+        position: { x: node.position.x + 36, y: node.position.y + 36 },
+        ...("inputs" in node ? { inputs: node.inputs.map((port) => ({ ...port })) } : {}),
+        ...("outputs" in node ? { outputs: node.outputs.map((port) => ({ ...port })) } : {}),
+        ...("config" in node ? { config: { ...node.config } } : {}),
+      };
+      return [copiedNode.id, copiedNode];
+    }),
+  );
+
+  const edges = Object.fromEntries(
+    Object.entries(workflow.edges).map(([edgeId, edge]) => {
+      const copiedEdge: WorkflowEdge = {
+        ...edge,
+        id: edgeIdMap.get(edgeId)!,
+        source: { ...edge.source, nodeId: nodeIdMap.get(edge.source.nodeId)! },
+        target: { ...edge.target, nodeId: nodeIdMap.get(edge.target.nodeId)! },
+      };
+      return [copiedEdge.id, copiedEdge];
+    }),
+  );
+
+  return {
+    ...workflow,
+    id: newWorkflowId,
+    name: `${workflow.name ?? workflow.id} copy`,
+    nodes,
+    edges,
+  };
+}

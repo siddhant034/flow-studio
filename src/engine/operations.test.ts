@@ -501,3 +501,39 @@ describe("updateWorkflowMetadata", () => {
     expect(updateWorkflowMetadata(workflow, { name: "Lead flow" })).toBe(workflow);
   });
 });
+
+describe("duplicateWorkflow", () => {
+  it("copies the complete graph with remapped IDs and preserved connections", async () => {
+    const { duplicateWorkflow } = await import("./operations");
+    const workflow: Workflow = {
+      ...createWorkflow(),
+      name: "Lead flow",
+      nodes: {
+        "action-1": createActionNode("action-1"),
+        "action-2": createActionNode("action-2"),
+      },
+      edges: { "edge-1": createEdge("edge-1", "action-1", "action-2") },
+    };
+
+    const copy = duplicateWorkflow(workflow, "workflow-copy");
+
+    expect(copy.id).toBe("workflow-copy");
+    expect(copy.name).toBe("Lead flow copy");
+    expect(Object.keys(copy.nodes)).toEqual(["workflow-copy-action-1", "workflow-copy-action-2"]);
+    expect(copy.edges["workflow-copy-edge-1"]).toEqual({
+      id: "workflow-copy-edge-1",
+      source: { nodeId: "workflow-copy-action-1", portId: "out" },
+      target: { nodeId: "workflow-copy-action-2", portId: "in" },
+    });
+    expect(copy.nodes["workflow-copy-action-1"].position).toEqual({ x: 156, y: 116 });
+    expect(workflow.id).toBe("workflow-1");
+    expect(workflow.nodes["action-1"].label).toBe("Send email");
+  });
+
+  it("rejects an empty or reused workflow ID", async () => {
+    const { duplicateWorkflow } = await import("./operations");
+    const workflow = createWorkflow();
+    expect(() => duplicateWorkflow(workflow, "")).toThrow("new, non-empty ID");
+    expect(() => duplicateWorkflow(workflow, workflow.id)).toThrow("new, non-empty ID");
+  });
+});
