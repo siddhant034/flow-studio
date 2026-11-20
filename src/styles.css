@@ -229,3 +229,7 @@ button:disabled { cursor: default; opacity: .65; }
 @media (max-width: 680px) {
   .validate-button { padding: 6px 7px; font-size: 9px; }
 }
+
+.graph-edge { pointer-events: stroke; cursor: pointer; }
+.graph-edge.is-selected { stroke: #6558d9; stroke-width: 3; }
+.graph-edge:focus-visible { outline: none; stroke: #6558d9; stroke-width: 3; }
