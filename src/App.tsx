@@ -118,7 +118,7 @@ function NodeCard({
         const delta = movement[event.key];
         if (delta) { event.preventDefault(); event.stopPropagation(); onMoveBy(delta[0], delta[1]); }
       }}
-      role="button" tabIndex={0} aria-pressed={selected}
+      role="group" tabIndex={0}
       aria-label={`Node ${node.label}, ${node.type} node. Use arrow keys to move.`}
       aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
     >
@@ -168,7 +168,7 @@ export default function App() {
   const [connectionDraft, setConnectionDraft] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const [connectionTargetId, setConnectionTargetId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
-  const [isDirty, setIsDirty] = useState(false);
+  const [isDirty, setIsDirty] = useState(true);
   const [validationIssues, setValidationIssues] = useState<WorkflowValidationIssue[] | null>(null);
   const connectionRef = useRef<{ pointerId: number; sourceNodeId: string; sourcePortId: string } | null>(null);
   const panRef = useRef<{

@@ -36,7 +36,7 @@ function renderEditor() {
   render(<App />);
   return {
     canvas: screen.getByRole("region", { name: /Workflow canvas/ }),
-    enrichNode: () => screen.getByRole("button", { name: /Node Enrich lead data/ }),
+    enrichNode: () => screen.getByRole("group", { name: /Node Enrich lead data/ }),
   };
 }
 
@@ -99,7 +99,7 @@ describe("workflow editor interactions", () => {
     fireEvent.click(enrichNode());
     fireEvent.change(screen.getByLabelText("Label"), { target: { value: "Normalize lead" } });
 
-    expect(screen.getByRole("button", { name: /Node Normalize lead/ })).toBeTruthy();
+    expect(screen.getByRole("group", { name: /Node Normalize lead/ })).toBeTruthy();
   });
 
   it("duplicates the full workflow with its graph intact", () => {
@@ -125,7 +125,7 @@ describe("workflow editor interactions", () => {
     fireEvent.click(enrichNode());
     fireEvent.click(screen.getByRole("button", { name: "Delete node" }));
 
-    expect(screen.queryByRole("button", { name: /Node Enrich lead data/ })).toBeNull();
+    expect(screen.queryByRole("group", { name: /Node Enrich lead data/ })).toBeNull();
     expect(screen.getByRole("status").textContent).toContain("Enrich lead data deleted");
   });
 });

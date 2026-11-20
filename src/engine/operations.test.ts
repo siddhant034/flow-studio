@@ -530,7 +530,6 @@ describe("duplicateWorkflow", () => {
   });
 
   it("rejects an empty or reused workflow ID", () => {
-    const { duplicateWorkflow } = await import("./operations");
     const workflow = createWorkflow();
     expect(() => duplicateWorkflow(workflow, "")).toThrow("new, non-empty ID");
     expect(() => duplicateWorkflow(workflow, workflow.id)).toThrow("new, non-empty ID");
