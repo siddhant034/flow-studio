@@ -1,3 +1,6 @@
+import { useState } from "react";
+import type { WorkflowEdge, WorkflowNode } from "./engine/types";
+import { initialWorkflow } from "./editor/initialWorkflow";
 import "./styles.css";
 
 const palette = [
@@ -11,7 +14,92 @@ function BrandMark() {
   return <div className="brand-mark"><span /><span /><span /></div>;
 }
 
+function nodeTone(node: WorkflowNode) {
+  return node.type === "start" ? "mint" : node.type === "action" ? "blue" : node.type === "condition" ? "amber" : "rose";
+}
+
+function nodeIcon(node: WorkflowNode) {
+  return node.type === "start" ? "↗" : node.type === "action" ? "⚡" : node.type === "condition" ? "◇" : "■";
+}
+
+function inputPorts(node: WorkflowNode) {
+  return "inputs" in node ? node.inputs : [];
+}
+
+function outputPorts(node: WorkflowNode) {
+  return "outputs" in node ? node.outputs : [];
+}
+
+function portOffset(node: WorkflowNode, portId: string, direction: "input" | "output") {
+  const ports = direction === "input" ? inputPorts(node) : outputPorts(node);
+  const index = ports.findIndex((port) => port.id === portId);
+  return ports.length > 1 ? 43 + Math.max(index, 0) * 34 : 60;
+}
+
+function edgePath(edge: WorkflowEdge, nodes: Record<string, WorkflowNode>) {
+  const source = nodes[edge.source.nodeId];
+  const target = nodes[edge.target.nodeId];
+  if (!source || !target) return "";
+
+  const sx = source.position.x + 220;
+  const sy = source.position.y + portOffset(source, edge.source.portId, "output");
+  const tx = target.position.x;
+  const ty = target.position.y + portOffset(target, edge.target.portId, "input");
+  const curve = Math.max(48, Math.abs(tx - sx) * 0.45);
+
+  return `M ${sx} ${sy} C ${sx + curve} ${sy}, ${tx - curve} ${ty}, ${tx} ${ty}`;
+}
+
+function NodeCard({
+  node,
+  selected,
+  onSelect,
+}: {
+  node: WorkflowNode;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      className={`graph-node ${selected ? "is-selected" : ""}`}
+      style={{ left: node.position.x, top: node.position.y }}
+      onClick={onSelect}
+      type="button"
+      aria-pressed={selected}
+    >
+      <div className="graph-node-top">
+        <span className={`node-symbol ${nodeTone(node)}`}>{nodeIcon(node)}</span>
+        <span className="node-kind">{node.type.toUpperCase()}</span>
+        <span className="node-menu">···</span>
+      </div>
+      <strong>{node.label}</strong>
+      <small>
+        {node.type === "action"
+          ? node.config.action
+          : node.type === "condition"
+            ? node.config.expression
+            : node.type === "start"
+              ? "Workflow entry point"
+              : "Workflow destination"}
+      </small>
+      {inputPorts(node).map((port) => (
+        <span key={port.id} className="graph-port graph-port-input" style={{ top: portOffset(node, port.id, "input") }} title={port.label} />
+      ))}
+      {outputPorts(node).map((port) => (
+        <span key={port.id} className="graph-port graph-port-output" style={{ top: portOffset(node, port.id, "output") }} title={port.label} />
+      ))}
+      {node.type === "condition" && <div className="condition-labels"><span>Yes</span><span>No</span></div>}
+    </button>
+  );
+}
+
 export default function App() {
+  const [workflow] = useState(initialWorkflow);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const selectedNode = selectedNodeId ? workflow.nodes[selectedNodeId] : undefined;
+  const nodes = Object.values(workflow.nodes);
+  const edges = Object.values(workflow.edges);
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -19,15 +107,15 @@ export default function App() {
           <BrandMark />
           <span className="brand-name">flow<span>studio</span></span>
           <span className="topbar-divider" />
-          <button className="workflow-name">Untitled workflow <span>⌄</span></button>
-          <span className="saved-state"><i /> All changes saved</span>
+          <span className="workflow-name">Lead enrichment <span>⌄</span></span>
+          <span className="saved-state"><i /> Example workflow</span>
         </div>
         <div className="topbar-actions">
-          <button className="icon-button" aria-label="Undo" title="Undo">↶</button>
-          <button className="icon-button" aria-label="Redo" title="Redo">↷</button>
+          <button className="icon-button" disabled aria-label="Undo" title="Undo">↶</button>
+          <button className="icon-button" disabled aria-label="Redo" title="Redo">↷</button>
           <span className="topbar-divider" />
-          <button className="share-button">Share</button>
-          <button className="publish-button">Publish <span>↗</span></button>
+          <button className="share-button" disabled>Share</button>
+          <button className="publish-button" disabled>Publish <span>↗</span></button>
           <div className="avatar">S</div>
         </div>
       </header>
@@ -36,7 +124,7 @@ export default function App() {
         <aside className="left-panel">
           <div className="panel-heading">
             <div><span className="eyebrow">BUILD</span><h2>Node library</h2></div>
-            <button className="small-icon" aria-label="Collapse panel">‹</button>
+            <button className="small-icon" aria-label="Collapse panel" disabled>‹</button>
           </div>
           <div className="search-box"><span>⌕</span><span>Search nodes</span><kbd>⌘ K</kbd></div>
           <div className="library-section">
@@ -49,51 +137,50 @@ export default function App() {
               </div>
             ))}
           </div>
-          <div className="panel-tip"><span>✦</span><div><strong>Quick tip</strong><p>Drag a node onto the canvas to start building your workflow.</p></div></div>
-          <div className="left-footer"><span className="status-dot" /> Engine ready <span className="version">v0.1.0</span></div>
+          <div className="panel-tip"><span>✦</span><div><strong>Explore the graph</strong><p>Select any node to inspect its properties. Editing and connections are coming next.</p></div></div>
+          <div className="left-footer"><span className="status-dot" /> Graph engine ready <span className="version">v0.1.0</span></div>
         </aside>
 
         <section className="canvas-area">
           <div className="canvas-toolbar">
-            <div className="breadcrumb"><span>Workflows</span><b>/</b><strong>Untitled workflow</strong></div>
-            <div className="canvas-tools"><button title="Select">↖</button><button title="Hand">✋</button><span /><button title="Zoom out">−</button><small>100%</small><button title="Zoom in">+</button><span /><button title="Fit view">⛶</button></div>
+            <div className="breadcrumb"><span>Workflows</span><b>/</b><strong>Lead enrichment</strong></div>
+            <div className="canvas-tools"><button disabled title="Select">↖</button><button disabled title="Pan">✋</button><span /><button disabled title="Zoom out">−</button><small>100%</small><button disabled title="Zoom in">+</button><span /><button disabled title="Fit view">⛶</button></div>
           </div>
           <div className="canvas-viewport">
             <div className="canvas-grid" />
-            <div className="canvas-empty-hint"><span>✦</span> Your workflow canvas</div>
-            <div className="sample-flow">
-              <div className="flow-node start-node">
-                <div className="node-top"><span className="node-symbol mint">↗</span><span className="node-kind">TRIGGER</span><span className="node-menu">···</span></div>
-                <strong>New lead received</strong><small>Workflow starts here</small>
-                <div className="node-port output-port"><i /> <span>Start</span></div>
-              </div>
-              <div className="flow-edge edge-one"><span /></div>
-              <div className="flow-node action-node">
-                <div className="node-top"><span className="node-symbol blue">⚡</span><span className="node-kind">ACTION</span><span className="node-menu">···</span></div>
-                <strong>Enrich lead data</strong><small>Fetch company details</small>
-                <div className="node-port input-port"><i /></div><div className="node-port output-port"><i /></div>
-              </div>
-              <div className="flow-edge edge-two"><span /></div>
-              <div className="flow-node condition-node">
-                <div className="node-top"><span className="node-symbol amber">◇</span><span className="node-kind">CONDITION</span><span className="node-menu">···</span></div>
-                <strong>Is lead qualified?</strong><small>Score ≥ 70</small>
-                <div className="node-port input-port"><i /></div>
-                <div className="branch-label yes">Yes</div><div className="branch-label no">No</div>
-                <div className="node-port output-port"><i /></div>
-              </div>
+            <div className="canvas-empty-hint"><span>✦</span> Workflow canvas <em>·</em> Select a node to inspect</div>
+            <div className="graph-world">
+              <svg className="edge-layer" width="1320" height="620" aria-hidden="true">
+                {edges.map((edge) => <path key={edge.id} d={edgePath(edge, workflow.nodes)} className="graph-edge" />)}
+              </svg>
+              {nodes.map((node) => (
+                <NodeCard key={node.id} node={node} selected={selectedNodeId === node.id} onSelect={() => setSelectedNodeId(node.id)} />
+              ))}
             </div>
-            <div className="canvas-zoom"><button>−</button><span>100%</span><button>+</button><i /><button>⌗</button></div>
+            <div className="canvas-zoom"><button disabled>−</button><span>100%</span><button disabled>+</button><i /><button disabled>⌗</button></div>
           </div>
-          <div className="canvas-status"><span>3 nodes</span><i /> <span>2 connections</span><span className="canvas-coords">X: 240&nbsp;&nbsp; Y: 180</span></div>
+          <div className="canvas-status"><span>{nodes.length} nodes</span><i /> <span>{edges.length} connections</span><span className="canvas-coords">Graph v{workflow.version}</span></div>
         </section>
 
         <aside className="right-panel">
-          <div className="inspector-heading"><div><span className="eyebrow">CONFIGURE</span><h2>Inspector</h2></div><button className="small-icon">›</button></div>
-          <div className="inspector-empty"><div className="inspector-art"><span>◇</span><i /><b /></div><strong>Nothing selected</strong><p>Select a node on the canvas to view and edit its properties.</p></div>
-          <div className="inspector-bottom"><div className="section-label">WORKFLOW DETAILS</div><label>Workflow name</label><div className="fake-input">Untitled workflow</div><label>Description</label><div className="fake-textarea">Add a short description...</div><div className="metadata-row"><span>Version</span><strong>1</strong></div><div className="metadata-row"><span>Last edited</span><strong>Just now</strong></div></div>
+          <div className="inspector-heading"><div><span className="eyebrow">CONFIGURE</span><h2>Inspector</h2></div><button className="small-icon" disabled>›</button></div>
+          {selectedNode ? (
+            <div className="selected-inspector">
+              <div className="selected-node-type"><span className={`node-symbol ${nodeTone(selectedNode)}`}>{nodeIcon(selectedNode)}</span><div><strong>{selectedNode.label}</strong><small>{selectedNode.type.toUpperCase()} NODE</small></div></div>
+              <label>Node ID</label><div className="fake-input">{selectedNode.id}</div>
+              <label>Label</label><div className="fake-input">{selectedNode.label}</div>
+              <label>Position</label><div className="position-fields"><div><small>X</small><strong>{selectedNode.position.x}</strong></div><div><small>Y</small><strong>{selectedNode.position.y}</strong></div></div>
+              {selectedNode.type === "action" && <><label>Action</label><div className="fake-input">{selectedNode.config.action}</div></>}
+              {selectedNode.type === "condition" && <><label>Expression</label><div className="fake-input">{selectedNode.config.expression}</div></>}
+              <div className="inspector-note">Properties are read-only in this milestone.</div>
+            </div>
+          ) : (
+            <div className="inspector-empty"><div className="inspector-art"><span>◇</span><i /><b /></div><strong>Nothing selected</strong><p>Select a node on the canvas to view its properties.</p></div>
+          )}
+          <div className="inspector-bottom"><div className="section-label">WORKFLOW DETAILS</div><label>Workflow name</label><div className="fake-input">Lead enrichment</div><label>Description</label><div className="fake-textarea">Qualify incoming leads and route them to the right destination.</div><div className="metadata-row"><span>Nodes</span><strong>{nodes.length}</strong></div><div className="metadata-row"><span>Connections</span><strong>{edges.length}</strong></div></div>
         </aside>
       </div>
-      <footer className="app-footer"><span><i /> Ready to build</span><span>Flow Studio <b>·</b> A visual workflow editor</span><span>⌘ + K <b>Shortcuts</b></span></footer>
+      <footer className="app-footer"><span><i /> Graph loaded</span><span>Flow Studio <b>·</b> A visual workflow editor</span><span>⌘ + K <b>Shortcuts</b></span></footer>
     </main>
   );
 }
