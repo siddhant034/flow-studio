@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { validateWorkflow } from "./validation";
-import type { Workflow, WorkflowEdge, WorkflowNode } from "./types";
+import type { ActionNode, Workflow, WorkflowEdge, WorkflowNode } from "./types";
 
-const createActionNode = (id: string): WorkflowNode => ({
+const createActionNode = (id: string): ActionNode => ({
   id,
   type: "action",
   label: "Action",

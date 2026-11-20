@@ -405,7 +405,7 @@ describe("updateNode", () => {
         ...node,
         type: "condition",
         config: { expression: "true" },
-      })),
+      } as unknown as WorkflowNode)),
     ).toThrow("A node update cannot change its type.");
   });
 });
