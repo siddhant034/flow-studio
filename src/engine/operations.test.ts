@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addEdge, addNode, removeEdge, removeNode, updateNode } from "./operations";
+import { addEdge, addNode, moveNode, removeEdge, removeNode, updateNode } from "./operations";
 import type { Workflow, WorkflowEdge, WorkflowNode } from "./types";
 
 const createWorkflow = (): Workflow => ({
@@ -407,5 +407,53 @@ describe("updateNode", () => {
         config: { expression: "true" },
       })),
     ).toThrow("A node update cannot change its type.");
+  });
+});
+
+describe("moveNode", () => {
+  const createWorkflowWithNodes = (): Workflow => ({
+    ...createWorkflow(),
+    nodes: {
+      "action-1": createActionNode("action-1"),
+      "action-2": createActionNode("action-2"),
+    },
+    edges: {
+      "edge-1": createEdge("edge-1", "action-1", "action-2"),
+    },
+  });
+
+  it("updates the node position immutably", () => {
+    const workflow = createWorkflowWithNodes();
+    const result = moveNode(workflow, "action-1", { x: 300, y: 180 });
+
+    expect(result.nodes["action-1"].position).toEqual({ x: 300, y: 180 });
+    expect(workflow.nodes["action-1"].position).toEqual({ x: 120, y: 80 });
+    expect(result).not.toBe(workflow);
+    expect(result.nodes).not.toBe(workflow.nodes);
+  });
+
+  it("preserves node data, other nodes, edges, and metadata", () => {
+    const workflow = createWorkflowWithNodes();
+    const result = moveNode(workflow, "action-1", { x: 300, y: 180 });
+
+    expect(result.nodes["action-1"].label).toBe(workflow.nodes["action-1"].label);
+    expect(result.nodes["action-2"]).toBe(workflow.nodes["action-2"]);
+    expect(result.edges).toBe(workflow.edges);
+    expect(result.id).toBe(workflow.id);
+    expect(result.version).toBe(workflow.version);
+  });
+
+  it("returns the original workflow when the node does not exist", () => {
+    const workflow = createWorkflowWithNodes();
+
+    expect(moveNode(workflow, "missing-node", { x: 1, y: 2 })).toBe(workflow);
+  });
+
+  it("returns the original workflow when the position is unchanged", () => {
+    const workflow = createWorkflowWithNodes();
+
+    expect(
+      moveNode(workflow, "action-1", { x: 120, y: 80 }),
+    ).toBe(workflow);
   });
 });
