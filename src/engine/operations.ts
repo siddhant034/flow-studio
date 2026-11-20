@@ -271,15 +271,40 @@ export function duplicateWorkflow(workflow: Workflow, newWorkflowId: string): Wo
 
   const nodes = Object.fromEntries(
     Object.entries(workflow.nodes).map(([nodeId, node]) => {
-      const copiedNode: WorkflowNode = {
-        ...node,
+      const base = {
         id: nodeIdMap.get(nodeId)!,
         label: `${node.label} copy`,
         position: { x: node.position.x + 36, y: node.position.y + 36 },
-        ...("inputs" in node ? { inputs: node.inputs.map((port) => ({ ...port })) } : {}),
-        ...("outputs" in node ? { outputs: node.outputs.map((port) => ({ ...port })) } : {}),
-        ...("config" in node ? { config: { ...node.config } } : {}),
       };
+      let copiedNode: WorkflowNode;
+
+      switch (node.type) {
+        case "start":
+          copiedNode = { ...base, type: "start", outputs: node.outputs.map((port) => ({ ...port })) };
+          break;
+        case "action":
+          copiedNode = {
+            ...base,
+            type: "action",
+            inputs: node.inputs.map((port) => ({ ...port })),
+            outputs: node.outputs.map((port) => ({ ...port })),
+            config: { action: node.config.action },
+          };
+          break;
+        case "condition":
+          copiedNode = {
+            ...base,
+            type: "condition",
+            inputs: node.inputs.map((port) => ({ ...port })),
+            outputs: node.outputs.map((port) => ({ ...port })),
+            config: { expression: node.config.expression },
+          };
+          break;
+        case "end":
+          copiedNode = { ...base, type: "end", inputs: node.inputs.map((port) => ({ ...port })) };
+          break;
+      }
+
       return [copiedNode.id, copiedNode];
     }),
   );
