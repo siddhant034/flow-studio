@@ -128,6 +128,14 @@ function NodeCard({
 export default function App() {
   const [workflow, setWorkflow] = useState(initialWorkflow);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [viewport, setViewport] = useState({ zoom: 0.78, panX: 0, panY: 0 });
+  const panRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    startPanX: number;
+    startPanY: number;
+  } | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const graphWorldRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
@@ -154,17 +162,49 @@ export default function App() {
     viewportRef.current?.setPointerCapture(event.pointerId);
   };
 
+  const handleCanvasPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || dragRef.current) return;
+    const target = event.target as HTMLElement;
+    if (target.closest(".graph-node")) return;
+
+    panRef.current = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startPanX: viewport.panX,
+      startPanY: viewport.panY,
+    };
+    viewportRef.current?.setPointerCapture(event.pointerId);
+  };
+
   const handleCanvasPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (drag && drag.pointerId === event.pointerId) {
+      const worldWidth = graphWorldRef.current?.getBoundingClientRect().width ?? 1320;
+      const scale = worldWidth / 1320 || 1;
+      const x = Math.max(0, drag.startX + (event.clientX - drag.startClientX) / scale);
+      const y = Math.max(0, drag.startY + (event.clientY - drag.startClientY) / scale);
+      setWorkflow((current) => moveNode(current, drag.nodeId, { x, y }));
+      return;
+    }
 
-    const worldWidth = graphWorldRef.current?.getBoundingClientRect().width ?? 1320;
-    const scale = worldWidth / 1320 || 1;
-    const x = Math.max(0, drag.startX + (event.clientX - drag.startClientX) / scale);
-    const y = Math.max(0, drag.startY + (event.clientY - drag.startClientY) / scale);
-
-    setWorkflow((current) => moveNode(current, drag.nodeId, { x, y }));
+    const pan = panRef.current;
+    if (!pan || pan.pointerId !== event.pointerId) return;
+    setViewport((current) => ({
+      ...current,
+      panX: pan.startPanX + event.clientX - pan.startClientX,
+      panY: pan.startPanY + event.clientY - pan.startClientY,
+    }));
   };
+
+  const changeZoom = (delta: number) => {
+    setViewport((current) => ({
+      ...current,
+      zoom: Math.min(1.35, Math.max(0.45, Number((current.zoom + delta).toFixed(2)))),
+    }));
+  };
+
+  const fitCanvas = () => setViewport({ zoom: 0.68, panX: 0, panY: 0 });
 
   const handleAddNode = (type: WorkflowNode["type"]) => {
     const id = `${type}-${crypto.randomUUID().slice(0, 8)}`;
@@ -178,8 +218,12 @@ export default function App() {
   };
 
   const handleCanvasPointerUp = (event: PointerEvent<HTMLDivElement>) => {
-    if (dragRef.current?.pointerId !== event.pointerId) return;
-    dragRef.current = null;
+    if (dragRef.current?.pointerId === event.pointerId) {
+      dragRef.current = null;
+    }
+    if (panRef.current?.pointerId === event.pointerId) {
+      panRef.current = null;
+    }
     if (viewportRef.current?.hasPointerCapture(event.pointerId)) {
       viewportRef.current.releasePointerCapture(event.pointerId);
     }
@@ -243,18 +287,19 @@ export default function App() {
         <section className="canvas-area">
           <div className="canvas-toolbar">
             <div className="breadcrumb"><span>Workflows</span><b>/</b><strong>Lead enrichment</strong></div>
-            <div className="canvas-tools"><button disabled title="Select">↖</button><button disabled title="Pan">✋</button><span /><button disabled title="Zoom out">−</button><small>100%</small><button disabled title="Zoom in">+</button><span /><button disabled title="Fit view">⛶</button></div>
+            <div className="canvas-tools"><button disabled title="Select">↖</button><button disabled title="Pan">✋</button><span /><button onClick={() => changeZoom(-0.1)} title="Zoom out">−</button><small>{Math.round(viewport.zoom * 100)}%</small><button onClick={() => changeZoom(0.1)} title="Zoom in">+</button><span /><button onClick={fitCanvas} title="Fit view">⛶</button></div>
           </div>
           <div
             className="canvas-viewport"
             ref={viewportRef}
+            onPointerDown={handleCanvasPointerDown}
             onPointerMove={handleCanvasPointerMove}
             onPointerUp={handleCanvasPointerUp}
             onPointerCancel={handleCanvasPointerUp}
           >
             <div className="canvas-grid" />
             <div className="canvas-empty-hint"><span>✦</span> Workflow canvas <em>·</em> Select a node to inspect</div>
-            <div className="graph-world" ref={graphWorldRef}>
+            <div className="graph-world" ref={graphWorldRef} style={{ transform: `translate(calc(-50% + ${viewport.panX}px), calc(-50% + ${viewport.panY}px)) scale(${viewport.zoom})` }}>
               <svg className="edge-layer" width="1320" height="620" aria-hidden="true">
                 {edges.map((edge) => <path key={edge.id} d={edgePath(edge, workflow.nodes)} className="graph-edge" />)}
               </svg>
@@ -262,7 +307,7 @@ export default function App() {
                 <NodeCard key={node.id} node={node} selected={selectedNodeId === node.id} onSelect={() => setSelectedNodeId(node.id)} onDragStart={(event) => handleNodeDragStart(node, event)} />
               ))}
             </div>
-            <div className="canvas-zoom"><button disabled>−</button><span>100%</span><button disabled>+</button><i /><button disabled>⌗</button></div>
+            <div className="canvas-zoom"><button onClick={() => changeZoom(-0.1)} aria-label="Zoom out">−</button><span>{Math.round(viewport.zoom * 100)}%</span><button onClick={() => changeZoom(0.1)} aria-label="Zoom in">+</button><i /><button onClick={fitCanvas} aria-label="Fit view">⌗</button></div>
           </div>
           <div className="canvas-status"><span>{nodes.length} nodes</span><i /> <span>{edges.length} connections</span><span className="canvas-coords">Graph v{workflow.version}</span></div>
         </section>
