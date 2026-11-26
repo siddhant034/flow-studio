@@ -9,6 +9,9 @@ A browser-based visual workflow editor for building, connecting, and managing no
 - Drag-and-drop node movement and output-to-input connections
 - Canvas panning and zooming
 - Node and connection selection, editing, and deletion
+- Keyboard-accessible node movement and connection creation
+- Duplicate a workflow with independent node and edge IDs
+- Unsaved-change feedback and local save status
 - Undo and redo with keyboard shortcuts
 - Workflow validation feedback
 - Save to browser storage, import JSON, and export JSON
@@ -56,6 +59,6 @@ This project is an editor prototype. It does not execute workflows or provide se
 
 The repository includes a GitHub Pages workflow that builds and deploys the app whenever changes reach `main`.
 
-Before the first deployment, set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**. The published project URL will be:
+Before the first deployment, open **Settings → Pages → Build and deployment** and set **Source** to **GitHub Actions**. The workflow cannot enable Pages itself when the Actions token lacks repository Pages-administration permission. The published project URL will be:
 
 https://siddhant034.github.io/flow-studio/
