@@ -236,3 +236,11 @@ button:disabled { cursor: default; opacity: .65; }
 
 .inspector-textarea { display: block; width: 100%; min-height: 72px; resize: vertical; border: 1px solid #e8ebf0; border-radius: 6px; color: #596371; background: #fff; font: 10px/1.5 'DM Sans', sans-serif; padding: 9px; outline: none; }
 .inspector-textarea:focus { border-color: #938be8; box-shadow: 0 0 0 3px #7569df18; }
+
+
+/* Accessible editor controls and connection targeting */
+.graph-node[role="group"]:focus-visible { outline: 2px solid #6558d9; outline-offset: 4px; }
+.graph-port { appearance: none; padding: 0; border-radius: 50%; }
+.graph-port:focus-visible { outline: 2px solid #6558d9; outline-offset: 4px; }
+.graph-port.is-drop-target { border-color: #2eaa80; box-shadow: 0 0 0 5px #2eaa8028; background: #effbf6; }
+.graph-port.is-drop-target:after { background: #2eaa80; }
